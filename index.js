@@ -46,29 +46,29 @@ moonScale = d3.scaleLog()
 // Célula 6
 
 viewof solarSystem = {
+
+  // === Dimensões e ponto central da cena ===
   const width = 1160;
   const height = 700;
   const center = { x: width/2, y: height/2 };
 
-  // Variáveis para gerenciar o estado da animação e o controle de tempo
-  let isRunning = true; // Variável interna para controlar o estado (true = rodando, false = pausado)
-  let pauseStart = 0; // Armazena o timestamp (rawElapsed) de quando a pausa começou
-  let accumulatedPauseTime = 0; // O tempo total acumulado de todas as pausas
-  let lastRawElapsed = 0; // Armazena o tempo bruto do último frame
+  // === Estado da animação ===
+  let isRunning = true;                     // Controla reprodução (play/pause)
+  let pauseStart = 0;                       // Timestamp do início da pausa
+  let accumulatedPauseTime = 0;             // Soma de pausas anteriores
+  let lastRawElapsed = 0;                   // Armazena o tempo bruto do último frame
+  let speed = 1;                            // Velocidade ajustável
+  let animationTime = 0;                    // Tempo acumulado (independente do timer do D3)
 
-  // Variável que gerencia a velocidade AGORA DENTRO desta célula
-  let speed = 1; // Velocidade padrão
-
-  // NOVO: Variável para rastrear o tempo total da animação de forma independente
-  let animationTime = 0; 
-
-  // 1. Crie o SVG e o container geral
+  // === Container principal ===
   const container = document.createElement("div");
   container.style.position = "relative";
+  
   const svg = d3.create("svg")
     .attr("width", width)
     .attr("height", height)
-    .style("background", "#000033"); // Adiciona um fundo escuro para melhor visualização
+    .style("background", "#000033");         // Adiciona um fundo escuro
+  
   container.appendChild(svg.node());
 
   // === Fundo Estrelado ===
@@ -88,16 +88,15 @@ viewof solarSystem = {
     .attr("fill", "white")
     .attr("opacity", 0.8);
 
-  // 2. Crie o "botão" usando elementos SVG
+  // === Botão Play/Pause ===
   const buttonGroup = svg.append("g")
-    .attr("transform", "translate(10, 660)") // Posiciona o botão no canto inferior esquerdo (ajuste conforme necessário)
-    .style("cursor", "pointer") // Muda o cursor para indicar que é clicável
+    .attr("transform", "translate(10, 660)")  // Posiciona o botão no canto inferior esquerdo (ajuste conforme necessário)
+    .style("cursor", "pointer")
     .on("click", () => {
-      isRunning = !isRunning; // Alterna o estado (Play/Pause)
+      isRunning = !isRunning;                 // Alterna o estado (Play/Pause)
 
       if(!isRunning){
-        // Pausando: Registre o momento exato em que a pausa começou
-        pauseStart = lastRawElapsed; 
+        pauseStart = lastRawElapsed;          // Marca início da pausa
         buttonText.text("Play");
       } else {
         // Retomando: Calcule a duração dessa última pausa e adicione ao total acumulado
@@ -106,42 +105,38 @@ viewof solarSystem = {
       } 
     });
 
-  // Fundo do botão (retângulo)
+  // Fundo e texto do botão
   buttonGroup.append("rect")
     .attr("width", 55)
     .attr("height", 25)
     .attr("fill", "#555")
-    .attr("rx", 5); // Cantos arredondados
+    .attr("rx", 5);                            // Cantos arredondados
 
-  // Texto do botão
   const buttonText = buttonGroup.append("text")
-    .attr("x", 27.5) // Centro X do retângulo
-    .attr("y", 17) // Posição Y do texto (ajustado para centralizar verticalmente)
+    .attr("x", 27.5)                           // Centro X do retângulo
+    .attr("y", 17)                             // Posição Y do texto (ajustado para centralizar verticalmente)
     .attr("fill", "white")
-    .attr("text-anchor", "middle") // Centraliza o texto horizontalmente
-    .attr("dominant-baseline", "middle") // Centraliza o texto verticalmente
+    .attr("text-anchor", "middle")             // Centraliza o texto horizontalmente
+    .attr("dominant-baseline", "middle")       // Centraliza o texto verticalmente
     .style("font-size", "12px")
-    .text("Pause"); // Texto inicial é "Pause" (pois está rodando)
+    .text("Pause");                            // Texto inicial é "Pause" (pois está rodando)
 
-  // === GRUPO RAIZ PARA TODO O SISTEMA SOLAR (Centralizado) ===
-  // Movemos toda a renderização do sistema solar para dentro de um grupo centralizado, 
-  // facilitando a gestão das coordenadas relativas.
+  // === Grupo raiz do sistema solar (centralizado) ===
+  // Toda a renderização do sistema solar é movida para dentro de um grupo centralizado, facilitando a gestão das coordenadas relativas.
   const systemGroup = svg.append("g")
     .attr("transform", `translate(${center.x},${center.y})`);
 
-  // Desenha o Sol (agora relativo ao novo systemGroup no centro)
+  // === Sol ===
   systemGroup.append("circle")
-    .attr("cx", 0) // Sol está na origem (0,0) do systemGroup
-    .style("cursor", "pointer")
+    .attr("cx", 0)                             // Sol está na origem (0,0) do systemGroup
     .attr("cy", 0)
     .attr("r", 20)
     .attr("fill", "yellow")
-    .append("title") // Adiciona o título/tooltip para o Sol
+    .style("cursor", "pointer")
+    .append("title")
     .text("Sol");
 
-  // === CORREÇÃO DO BUG: DESENHA AS ÓRBITAS SOLARES AQUI ===
-  // Estas órbitas ficam estáticas no systemGroup, centradas no Sol.
-  // 1. Desenha a órbita do planeta (centrada no Sol, que é a origem do systemGroup)
+  // === Órbitas dos planetas (estáticas) ===
   systemGroup.selectAll("circle.orbit-sun")
     .data(planets)
     .join("circle")
@@ -153,23 +148,19 @@ viewof solarSystem = {
     .attr("stroke", "rgba(255,255,255,0.2)")
     .attr("stroke-dasharray", "2,2");
 
-  // === LUAS ===
-  // Agrupa as luas por planeta (mantido para referência interna)
+  // === Agrupamento das luas por planeta ===
   const moonsByPlanet = d3.group(moons, d => d.planet);
 
-  // --- SEÇÃO DE RENDERIZAÇÃO DE PLANETAS E LUAS ---
-  // Cada planeta terá um grupo <g> para facilitar a rotação
+  // === Grupos dos planetas ===
   const planetGroups = systemGroup.selectAll("g.planet")
     .data(planets)
     .join("g")
     .attr("class", "planet");
 
-    // === CORREÇÃO DO BUG: DESENHA AS ÓRBITAS DAS LUAS AQUI, DENTRO DO GRUPO DO PLANETA ===
-    // Isso garante que o centro da órbita (cx=0, cy=0) esteja sempre no centro do planeta (origem do planetGroup).
+    // === Órbitas das luas (desenhadas dentro do grupo do planeta) ===
     planetGroups.each(function(planetData){
       const planetGroup = d3.select(this);
       const planetMoons = moonsByPlanet.get(planetData.name);
-
       if (!planetMoons) return;
 
       // Desenha órbita da lua (centrada no planeta, que é a origem do planetGroup)
@@ -182,13 +173,14 @@ viewof solarSystem = {
         .attr("r", d => moonScale(d.orbit))
         .attr("fill", "none")
         .attr("stroke", "rgba(255,255,255,0.15)")
-        .attr("stroke-dasharray", "1,1"); // Órbitas de lua mais finas/tracejadas
-    })
-  
+        .attr("stroke-dasharray", "1,1");
+    });
+
+    // === Renderização dos planetas e luas ===
     planetGroups.each(function(planetData) {
       const planetGroup = d3.select(this);
 
-      // 2. Adiciona o planeta (posição inicial na origem local, a animação fará a translação)
+      // Planeta
       planetGroup.append("circle")
         .attr("class", "planet-circle")
         .style("cursor", "pointer")
@@ -196,15 +188,15 @@ viewof solarSystem = {
         .attr("fill", d => d.color)
         .attr("stroke", "black")
         .attr("stroke-width", 0.5)
-        .attr("cx", 0) // Planeta fica na origem (0,0) do seu grupo
+        .attr("cx", 0)
         .attr("cy", 0)
         .append("title")
         .text(d => d.name);
 
-      // --- LUAS ---
+      // Luas
       const planetMoons = moonsByPlanet.get(planetData.name);
 
-      if (!planetMoons) return; // planeta sem luas → ignora
+      if (!planetMoons) return;                   // planeta sem luas → ignora
 
       // Cria grupo para as luas
       const moonGroups = planetGroup.selectAll("g.moon")
@@ -224,28 +216,33 @@ viewof solarSystem = {
     });
     // Fim do bloco .each()
 
-  // === ÍCONE DE ENGRENAGEM E MENU DE VELOCIDADE ===
+  // === Menu de Velocidade (Engrenagem + Controles) ===
   
-  // Cria o menu flutuante (escondido inicialmente)
+  // Menu flutuante (inicialmente oculto)
   const speedMenu = document.createElement("div");
   speedMenu.style.position = "absolute";
-  speedMenu.style.bottom = "60px"; // Posição acima dos controles inferiores
+  speedMenu.style.bottom = "60px";                  // Acima dos controles inferiores
   speedMenu.style.left = "10px";
-  speedMenu.style.background = "#2a2a2a"; // Fundo escuro como na imagem
+  speedMenu.style.background = "#2a2a2a";           // Estilo painel escuro
   speedMenu.style.padding = "15px";
   speedMenu.style.borderRadius = "8px";
   speedMenu.style.boxShadow = "0 4px 8px rgba(0,0,0,0.5)";
-  speedMenu.style.display = "none"; // Esconde por padrão
+  speedMenu.style.display = "none";
   speedMenu.style.color = "white";
   speedMenu.style.width = "300px";
+
+  // Estrutura interna do menu
   speedMenu.innerHTML = `
     <strong>Velocidade da reprodução</strong>
     <hr style="border-color:#555;">
+
     <label for="speedSlider">Velocidade do tempo:</label>
-    <!-- Adicionamos um input range e um input number manuais -->
+
+    <!-- Controles principais -->
     <input type="range" id="speedSlider" min="0.1" max="10" step="0.1" value="${speed}" style="width: 100%;">
     <input type="number" id="speedNumber" min="0.1" max="10" step="0.1" value="${speed}" style="width: 60px;">
 
+    <!-- Atalhos rápidos -->
     <div style="margin-top:10px;">
       Opções fixas:
       <!-- Atribuímos IDs e ouvintes de evento aqui -->
@@ -256,41 +253,45 @@ viewof solarSystem = {
   `;
   container.appendChild(speedMenu);
 
-  // Lógica para sincronizar os controles manuais
+  // === Sincronização dos controles de velocidade ===
+  
   const sliderInput = speedMenu.querySelector("#speedSlider");
   const numberInput = speedMenu.querySelector("#speedNumber");
 
+  // Atualiza velocidade e sincroniza campos
   function updateSpeed(newSpeed) {
       speed = newSpeed;
       sliderInput.value = newSpeed;
       numberInput.value = newSpeed;
   }
 
-  // Event Listeners para os novos inputs
+  // Inputs manuais
   sliderInput.addEventListener("input", (e) => updateSpeed(parseFloat(e.target.value)));
   numberInput.addEventListener("input", (e) => updateSpeed(parseFloat(e.target.value)));
 
-  // Event Listeners para os botões fixos
+  // Botões de velocidade fixa
   speedMenu.querySelector("#btn-05x").addEventListener("click", () => updateSpeed(0.5));
   speedMenu.querySelector("#btn-1x").addEventListener("click", () => updateSpeed(1));
   speedMenu.querySelector("#btn-2x").addEventListener("click", () => updateSpeed(2));
 
-  // Ícone de Engrenagem (Settings) - SVG para melhor visual
+  // === Ícone de configurações (Engrenagem) ===
+  
   const settingsIcon = svg.append("g")
-    .attr("transform", "translate(80, 660)") // Posição próxima ao botão Play/Pause
+    .attr("transform", "translate(80, 660)")        // Posição próxima ao botão Play/Pause
     .style("cursor", "pointer")
     .on("click", (event) => {
-      // Impede que o clique no ícone se propague e feche o menu imediatamente
+      // Evita fechamento imediato do menu
       event.stopPropagation(); 
       speedMenu.style.display = (speedMenu.style.display === "none") ? "block" : "none";
     });
 
-  // Desenho do ícone de engrenagem simplificado (use um SVG path real para um ícone melhor)
+  // Ícone simples (placeholder visual)
   settingsIcon.append("rect")
     .attr("width", 30)
     .attr("height", 25)
     .attr("fill", "#555")
     .attr("rx", 5);
+  
   settingsIcon.append("text")
     .attr("x", 15)
     .attr("y", 17)
@@ -298,45 +299,35 @@ viewof solarSystem = {
     .attr("text-anchor", "middle")
     .attr("dominant-baseline", "middle")
     .style("font-size", "18px")
-    .text("⚙︎"); // Engrenagem unicode simples
+    .text("⚙︎");
 
-  // --- LÓGICA DE ANIMAÇÃO CORRIGIDA ---
+  // === Lógica principal da animação (com Delta Time) ===
 
-  // Precisamos rastrear o tempo decorrido no frame anterior para calcular o delta
+  // Rastreamento do tempo entre frames para suavidade
   let lastFrameTime = performance.now();
   
   let timer = d3.timer(rawElapsed => {
-    // Sempre atualize o último tempo bruto conhecido, para uso no clique
+    // Mantém o último tempo bruto para lógica de pausa/play
     lastRawElapsed = rawElapsed;
 
-    // Calcula o tempo Delta entre o frame atual e o anterior
+    // Cálculo do delta entre frames (garante animação suave)
     const currentFrameTime = performance.now();
     const deltaTime = currentFrameTime - lastFrameTime;
     lastFrameTime = currentFrameTime;
 
     if (isRunning) {
-      // Incrementa o tempo da animação usando o delta time MULTIPLICADO pela velocidade
-      // Isso garante um movimento suave, independente do tempo total
+      // Atualiza tempo interno da simulação baseado na velocidade
       animationTime += deltaTime * speed;
       
-      // Animação dos planetas: 
-      // 1. Calcula o ângulo de rotação em torno do Sol.
-      // 2. Aplica a transformação: rotaciona em torno da origem (Sol) E move o grupo para a distância orbital (translateX).
-      // o tempo corrigido (effectiveElapsed)
+      // === Movimento orbital dos planetas ===
       planetGroups.attr("transform", d => {
-        // === velocidade controlada pelo slider ===
-        const angle = (animationTime / (d.period * 100)) * 2 * Math.PI; // Ajuste de escala de tempo (2000ms base)
+        const angle = (animationTime / (d.period * 100)) * 2 * Math.PI;
         const orbitRadius = scale(d.orbit);
-        // CORREÇÃO: Rotaciona primeiro em torno do Sol (origem), depois translada para a distância orbital.
+        // Rotaciona primeiro em torno do Sol (origem), depois translada para a distância orbital.
         return `rotate(${angle * 180 / Math.PI}) translate(${orbitRadius}, 0)`;
       });
 
-      // Animação das luas (relativa ao seu planeta pai):
-      // 1. Pega cada grupo de planeta.
-      // 2. Aplica transformação *apenas de rotação* nos grupos das luas. 
-      //    A translação da lua já está configurada para a distância correta em relação ao planeta.
-      //    A herança de transformações faz com que elas girem junto com o planeta em torno do sol, 
-      //    e agora girem em torno do planeta devido a essa nova rotação local.
+      // === Movimento orbital das luas (relativo ao planeta) ===
       planetGroups.each(function(planetData) {
         const planetMoons = moonsByPlanet.get(planetData.name);
         if (!planetMoons) return;
@@ -344,9 +335,9 @@ viewof solarSystem = {
         const moonGroups = d3.select(this).selectAll("g.moon");
       
         moonGroups.attr("transform", d => {
-          const moonAngle = (animationTime / (d.period * 50)) * 2 * Math.PI; // Ajuste de escala de tempo (1000ms base)
+          const moonAngle = (animationTime / (d.period * 50)) * 2 * Math.PI;
           const moonOrbitRadius = moonScale(d.orbit);
-          // CORREÇÃO: Rotaciona primeiro em torno do Planeta (origem local), depois translada para a distância orbital.
+          // Rotaciona primeiro em torno do Planeta (origem local), depois translada para a distância orbital.
           return `rotate(${moonAngle * 180 / Math.PI}) translate(${moonOrbitRadius}, 0)`;
         });
       });
@@ -355,10 +346,10 @@ viewof solarSystem = {
     // e o accumulatedPauseTime é ajustado no próximo clique em "Play".
   });
 
-  // Limpeza no Observable
+  // Limpeza automática do timer no Observable
   invalidation.then(() => timer.stop());
 
-  // Adiciona um listener global para fechar o menu se o usuário clicar fora dele
+  // === Fecha menu quando clica fora ===
   document.addEventListener("click", (event) => {
     // Verifica se o clique foi fora do menu e fora do ícone de engrenagem
     if (!speedMenu.contains(event.target) && !settingsIcon.node().contains(event.target)) {
