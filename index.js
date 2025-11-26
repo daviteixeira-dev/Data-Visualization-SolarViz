@@ -45,10 +45,6 @@ moonScale = d3.scaleLog()
 
 // Célula 6
 
-viewof speed = Inputs.range([0.1, 10], {step: 0.1, value: 1, label: "Velocidade do tempo"});
-
-// Célula 7
-
 viewof solarSystem = {
   const width = 1160;
   const height = 700;
@@ -60,11 +56,20 @@ viewof solarSystem = {
   let accumulatedPauseTime = 0; // O tempo total acumulado de todas as pausas
   let lastRawElapsed = 0; // Armazena o tempo bruto do último frame
 
-  // 1. Crie o SVG
+  // Variável que gerencia a velocidade AGORA DENTRO desta célula
+  let speed = 1; // Velocidade padrão
+
+  // NOVO: Variável para rastrear o tempo total da animação de forma independente
+  let animationTime = 0; 
+
+  // 1. Crie o SVG e o container geral
+  const container = document.createElement("div");
+  container.style.position = "relative";
   const svg = d3.create("svg")
     .attr("width", width)
     .attr("height", height)
     .style("background", "#000033"); // Adiciona um fundo escuro para melhor visualização
+  container.appendChild(svg.node());
 
   // === Fundo Estrelado ===
   const stars = d3.range(300).map(() => ({
@@ -219,14 +224,100 @@ viewof solarSystem = {
     });
     // Fim do bloco .each()
 
+  // === ÍCONE DE ENGRENAGEM E MENU DE VELOCIDADE ===
+  
+  // Cria o menu flutuante (escondido inicialmente)
+  const speedMenu = document.createElement("div");
+  speedMenu.style.position = "absolute";
+  speedMenu.style.bottom = "60px"; // Posição acima dos controles inferiores
+  speedMenu.style.left = "10px";
+  speedMenu.style.background = "#2a2a2a"; // Fundo escuro como na imagem
+  speedMenu.style.padding = "15px";
+  speedMenu.style.borderRadius = "8px";
+  speedMenu.style.boxShadow = "0 4px 8px rgba(0,0,0,0.5)";
+  speedMenu.style.display = "none"; // Esconde por padrão
+  speedMenu.style.color = "white";
+  speedMenu.style.width = "300px";
+  speedMenu.innerHTML = `
+    <strong>Velocidade da reprodução</strong>
+    <hr style="border-color:#555;">
+    <label for="speedSlider">Velocidade do tempo:</label>
+    <!-- Adicionamos um input range e um input number manuais -->
+    <input type="range" id="speedSlider" min="0.1" max="10" step="0.1" value="${speed}" style="width: 100%;">
+    <input type="number" id="speedNumber" min="0.1" max="10" step="0.1" value="${speed}" style="width: 60px;">
+
+    <div style="margin-top:10px;">
+      Opções fixas:
+      <!-- Atribuímos IDs e ouvintes de evento aqui -->
+      <button id="btn-05x">0.5x</button>
+      <button id="btn-1x">1x</button>
+      <button id="btn-2x">2x</button>
+    </div>
+  `;
+  container.appendChild(speedMenu);
+
+  // Lógica para sincronizar os controles manuais
+  const sliderInput = speedMenu.querySelector("#speedSlider");
+  const numberInput = speedMenu.querySelector("#speedNumber");
+
+  function updateSpeed(newSpeed) {
+      speed = newSpeed;
+      sliderInput.value = newSpeed;
+      numberInput.value = newSpeed;
+  }
+
+  // Event Listeners para os novos inputs
+  sliderInput.addEventListener("input", (e) => updateSpeed(parseFloat(e.target.value)));
+  numberInput.addEventListener("input", (e) => updateSpeed(parseFloat(e.target.value)));
+
+  // Event Listeners para os botões fixos
+  speedMenu.querySelector("#btn-05x").addEventListener("click", () => updateSpeed(0.5));
+  speedMenu.querySelector("#btn-1x").addEventListener("click", () => updateSpeed(1));
+  speedMenu.querySelector("#btn-2x").addEventListener("click", () => updateSpeed(2));
+
+  // Ícone de Engrenagem (Settings) - SVG para melhor visual
+  const settingsIcon = svg.append("g")
+    .attr("transform", "translate(80, 660)") // Posição próxima ao botão Play/Pause
+    .style("cursor", "pointer")
+    .on("click", (event) => {
+      // Impede que o clique no ícone se propague e feche o menu imediatamente
+      event.stopPropagation(); 
+      speedMenu.style.display = (speedMenu.style.display === "none") ? "block" : "none";
+    });
+
+  // Desenho do ícone de engrenagem simplificado (use um SVG path real para um ícone melhor)
+  settingsIcon.append("rect")
+    .attr("width", 30)
+    .attr("height", 25)
+    .attr("fill", "#555")
+    .attr("rx", 5);
+  settingsIcon.append("text")
+    .attr("x", 15)
+    .attr("y", 17)
+    .attr("fill", "white")
+    .attr("text-anchor", "middle")
+    .attr("dominant-baseline", "middle")
+    .style("font-size", "18px")
+    .text("⚙︎"); // Engrenagem unicode simples
+
   // --- LÓGICA DE ANIMAÇÃO CORRIGIDA ---
+
+  // Precisamos rastrear o tempo decorrido no frame anterior para calcular o delta
+  let lastFrameTime = performance.now();
+  
   let timer = d3.timer(rawElapsed => {
     // Sempre atualize o último tempo bruto conhecido, para uso no clique
-    lastRawElapsed = rawElapsed; 
+    lastRawElapsed = rawElapsed;
+
+    // Calcula o tempo Delta entre o frame atual e o anterior
+    const currentFrameTime = performance.now();
+    const deltaTime = currentFrameTime - lastFrameTime;
+    lastFrameTime = currentFrameTime;
 
     if (isRunning) {
-      // O tempo efetivo é o tempo total menos o tempo total que passamos pausados
-      const effectiveElapsed = rawElapsed - accumulatedPauseTime;
+      // Incrementa o tempo da animação usando o delta time MULTIPLICADO pela velocidade
+      // Isso garante um movimento suave, independente do tempo total
+      animationTime += deltaTime * speed;
       
       // Animação dos planetas: 
       // 1. Calcula o ângulo de rotação em torno do Sol.
@@ -234,7 +325,7 @@ viewof solarSystem = {
       // o tempo corrigido (effectiveElapsed)
       planetGroups.attr("transform", d => {
         // === velocidade controlada pelo slider ===
-        const angle = (effectiveElapsed * speed / (d.period * 20)) * 2 * Math.PI;
+        const angle = (animationTime / (d.period * 100)) * 2 * Math.PI; // Ajuste de escala de tempo (2000ms base)
         const orbitRadius = scale(d.orbit);
         // CORREÇÃO: Rotaciona primeiro em torno do Sol (origem), depois translada para a distância orbital.
         return `rotate(${angle * 180 / Math.PI}) translate(${orbitRadius}, 0)`;
@@ -253,7 +344,7 @@ viewof solarSystem = {
         const moonGroups = d3.select(this).selectAll("g.moon");
       
         moonGroups.attr("transform", d => {
-          const moonAngle = (effectiveElapsed * speed / (d.period * 10)) * 2 * Math.PI;
+          const moonAngle = (animationTime / (d.period * 50)) * 2 * Math.PI; // Ajuste de escala de tempo (1000ms base)
           const moonOrbitRadius = moonScale(d.orbit);
           // CORREÇÃO: Rotaciona primeiro em torno do Planeta (origem local), depois translada para a distância orbital.
           return `rotate(${moonAngle * 180 / Math.PI}) translate(${moonOrbitRadius}, 0)`;
@@ -267,6 +358,13 @@ viewof solarSystem = {
   // Limpeza no Observable
   invalidation.then(() => timer.stop());
 
-  // Retorna apenas o elemento SVG
-  return svg.node();
+  // Adiciona um listener global para fechar o menu se o usuário clicar fora dele
+  document.addEventListener("click", (event) => {
+    // Verifica se o clique foi fora do menu e fora do ícone de engrenagem
+    if (!speedMenu.contains(event.target) && !settingsIcon.node().contains(event.target)) {
+      speedMenu.style.display = "none";
+    }
+  });
+
+  return container;
 }
