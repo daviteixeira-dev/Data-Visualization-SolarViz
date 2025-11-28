@@ -1,8 +1,8 @@
-// Célula 1:
+// Célula 1: ===================================================================================
 
 d3 = require("d3@6")
 
-// Célula 2:
+// Célula 2: [Planetas] ========================================================================
 
 planets = [
   { name: "Mercúrio", color: "#b1b1b1", radius: 3, orbit: 58e6, period: 88 },
@@ -15,7 +15,7 @@ planets = [
   { name: "Netuno", color: "#4978ff", radius: 7, orbit: 4495e6, period: 60190 }
 ]
 
-// Célula 3:
+// Célula 3: [Luas] ============================================================================
 
 moons = [
   // Lua da Terra
@@ -31,48 +31,65 @@ moons = [
   { name: "Titã", planet: "Saturno", radius: 3, orbit: 1221870, period: 15.9 }
 ]
 
-// Célula 4
-
-scale = d3.scaleLog()
+// Célula 4: [Escala das orbitas dos planetas e das luas] ======================================
+scaleOrbits = {
+  const planetScale = d3.scaleLog()
     .domain([d3.min(planets, d => d.orbit), d3.max(planets, d => d.orbit)])
-    .range([30, 300]) // Definimos um range mínimo (30px) para afastar Mercúrio do Sol, e um máximo (300px).
+    .range([30, 300]); // Definimos um range mínimo (30px) para afastar Mercúrio do Sol, e um máximo (300px).
 
-// Célula 5
-
-moonScale = d3.scaleLog()
+  const moonScale = d3.scaleLog()
     .domain([1e5, 4e6]) // valores típicos da distância das luas
-    .range([8, 25])     // tamanho visual das órbitas
+    .range([8, 25]);     // tamanho visual das órbitas
+
+  return { planetScale, moonScale };
+}
+
+// Célula 5: [Variáveis de estado da animação] =================================================
+
+mutable isRunning = true;                     // Controla reprodução (play/pause)
 
 // Célula 6
 
-viewof solarSystem = {
+mutable pauseStart = 0;                       // Timestamp do início da pausa
 
+// Célula 7
+
+mutable accumulatedPauseTime = 0;             // Soma de pausas anteriores
+
+// Célula 8: [Container e dimensões] ===========================================================
+
+containerAndDimensions = {
   // === Dimensões e ponto central da cena ===
   const width = 1160;
   const height = 700;
   const center = { x: width/2, y: height/2 };
 
-  // === Estado da animação ===
-  let isRunning = true;                     // Controla reprodução (play/pause)
-  let pauseStart = 0;                       // Timestamp do início da pausa
-  let accumulatedPauseTime = 0;             // Soma de pausas anteriores
-  let lastRawElapsed = 0;                   // Armazena o tempo bruto do último frame
-  let speed = 1;                            // Velocidade ajustável
-  let animationTime = 0;                    // Tempo acumulado (independente do timer do D3)
+  return { width, height, center };
+}
 
-  // === Container principal ===
+// Célula 9: [Criação do Container + SVG] ======================================================
+
+// === Container principal ===
+makeContainerCell = function(width, height) {
   const container = document.createElement("div");
   container.style.position = "relative";
-  
+
   const svg = d3.create("svg")
     .attr("width", width)
     .attr("height", height)
-    .style("background", "#000033");         // Adiciona um fundo escuro
-  
-  container.appendChild(svg.node());
+    .style("background", "#000033") // Adiciona um fundo escuro
+    .node()
 
-  // === Fundo Estrelado ===
-  const stars = d3.range(300).map(() => ({
+  container.appendChild(svg);
+
+  return { container, svg: d3.select(svg) };
+}
+
+// Célula 10: [Fundo Estrelado] ================================================================
+
+// === Fundo Estrelado ===
+makeStarfield = function(svg, width, height, n = 300) {
+  const stars = d3.range(n).map(() => ({
     x: Math.random() * width,
     y: Math.random() * height,
     r: Math.random() * 1.5
@@ -88,43 +105,71 @@ viewof solarSystem = {
     .attr("fill", "white")
     .attr("opacity", 0.8);
 
-  // === Botão Play/Pause ===
-  const buttonGroup = svg.append("g")
-    .attr("transform", "translate(10, 660)")  // Posiciona o botão no canto inferior esquerdo (ajuste conforme necessário)
-    .style("cursor", "pointer")
-    .on("click", () => {
-      isRunning = !isRunning;                 // Alterna o estado (Play/Pause)
+  return { stars, svg }
+}
 
-      if(!isRunning){
-        pauseStart = lastRawElapsed;          // Marca início da pausa
-        buttonText.text("Play");
-      } else {
-        // Retomando: Calcule a duração dessa última pausa e adicione ao total acumulado
-        accumulatedPauseTime += lastRawElapsed - pauseStart;
-        buttonText.text("Pause");
-      } 
-    });
+// Célula 11: [Botão Play/Pause] ===============================================================
+
+// === Botão Play/Pause ===
+makePlayPauseButton = function(svg, onToggle) {
+  const group = svg.append("g")
+    .attr("transform", "translate(10, 660)") // Posiciona o botão no canto inferior esquerdo (ajuste conforme necessário)
+    .style("cursor", "pointer")
+    .on("click", onToggle);
 
   // Fundo e texto do botão
-  buttonGroup.append("rect")
+  group.append("rect")
     .attr("width", 55)
     .attr("height", 25)
     .attr("fill", "#555")
-    .attr("rx", 5);                            // Cantos arredondados
+    .attr("rx", 5); // Cantos arredondados
 
-  const buttonText = buttonGroup.append("text")
-    .attr("x", 27.5)                           // Centro X do retângulo
-    .attr("y", 17)                             // Posição Y do texto (ajustado para centralizar verticalmente)
+  const text = group.append("text")
+    .attr("x", 27.5) // Centro X do retângulo
+    .attr("y", 17) // Posição Y do texto (ajustado para centralizar verticalmente)
     .attr("fill", "white")
-    .attr("text-anchor", "middle")             // Centraliza o texto horizontalmente
-    .attr("dominant-baseline", "middle")       // Centraliza o texto verticalmente
+    .attr("text-anchor", "middle") // Centraliza o texto horizontalmente
+    .attr("dominant-baseline", "middle") // Centraliza o texto verticalmente
     .style("font-size", "12px")
     .text("Pause");                            // Texto inicial é "Pause" (pois está rodando)
+
+  return { group, text };
+}
+
+// Célula 12: [Sistema Solar] ==================================================================
+
+viewof solarSystem = {
+
+  // === Estado da animação ===
+  let lastRawElapsed = 0;                   // Armazena o tempo bruto do último frame
+  let speed = 1;                            // Velocidade ajustável
+  let animationTime = 0;                    // Tempo acumulado (independente do timer do D3)
+
+  // === Container principal ===
+  const { container, svg } = makeContainerCell(containerAndDimensions.width, containerAndDimensions.height);
+
+  // === Fundo Estrelado ===
+  makeStarfield(svg, containerAndDimensions.width, containerAndDimensions.height);
+
+  // === Botão Play/Pause ===
+  const {text: buttonText } = makePlayPauseButton(svg, () => {
+    // Acessa e altera a variável 'mutable'
+    mutable isRunning = !mutable isRunning; // Alterna o estado (Play/Pause)
+
+    if (!mutable isRunning) {
+      mutable pauseStart = lastRawElapsed; // Marca início da pausa
+      buttonText.text("Play");
+    } else {
+      // Calcule a duração dessa última pausa e adicione ao total acumulado
+      mutable accumulatedPauseTime += lastRawElapsed - mutable pauseStart;
+      buttonText.text("Pause");
+    }
+  });
 
   // === Grupo raiz do sistema solar (centralizado) ===
   // Toda a renderização do sistema solar é movida para dentro de um grupo centralizado, facilitando a gestão das coordenadas relativas.
   const systemGroup = svg.append("g")
-    .attr("transform", `translate(${center.x},${center.y})`);
+    .attr("transform", `translate(${containerAndDimensions.center.x},${containerAndDimensions.center.y})`);
 
   // === Sol ===
   systemGroup.append("circle")
@@ -143,7 +188,7 @@ viewof solarSystem = {
     .attr("class", "orbit-sun")
     .attr("cx", 0) 
     .attr("cy", 0)
-    .attr("r", d => scale(d.orbit))
+    .attr("r", d => scaleOrbits.planetScale(d.orbit))
     .attr("fill", "none")
     .attr("stroke", "rgba(255,255,255,0.2)")
     .attr("stroke-dasharray", "2,2");
@@ -170,7 +215,7 @@ viewof solarSystem = {
         .attr("class", "orbit-moon")
         .attr("cx", 0)
         .attr("cy", 0)
-        .attr("r", d => moonScale(d.orbit))
+        .attr("r", d => scaleOrbits.moonScale(d.orbit))
         .attr("fill", "none")
         .attr("stroke", "rgba(255,255,255,0.15)")
         .attr("stroke-dasharray", "1,1");
@@ -315,14 +360,14 @@ viewof solarSystem = {
     const deltaTime = currentFrameTime - lastFrameTime;
     lastFrameTime = currentFrameTime;
 
-    if (isRunning) {
+    if (mutable isRunning) {
       // Atualiza tempo interno da simulação baseado na velocidade
       animationTime += deltaTime * speed;
       
       // === Movimento orbital dos planetas ===
       planetGroups.attr("transform", d => {
         const angle = (animationTime / (d.period * 100)) * 2 * Math.PI;
-        const orbitRadius = scale(d.orbit);
+        const orbitRadius = scaleOrbits.planetScale(d.orbit);
         // Rotaciona primeiro em torno do Sol (origem), depois translada para a distância orbital.
         return `rotate(${angle * 180 / Math.PI}) translate(${orbitRadius}, 0)`;
       });
@@ -336,7 +381,7 @@ viewof solarSystem = {
       
         moonGroups.attr("transform", d => {
           const moonAngle = (animationTime / (d.period * 50)) * 2 * Math.PI;
-          const moonOrbitRadius = moonScale(d.orbit);
+          const moonOrbitRadius = scaleOrbits.moonScale(d.orbit);
           // Rotaciona primeiro em torno do Planeta (origem local), depois translada para a distância orbital.
           return `rotate(${moonAngle * 180 / Math.PI}) translate(${moonOrbitRadius}, 0)`;
         });
