@@ -350,7 +350,51 @@ makeSolarSystem = (svg, planets, moons, scaleOrbits, center) => {
   return { planetGroups, moonsByPlanet };
 };
 
-// Célula 14: [Viewof Sistema Solar + Animação] ================================================
+// Célula 14: [Geração dos dados para os asteroides] ===========================================
+
+asteroidBeltData = {
+  // Define os raios orbitais de Marte e Júpiter (use os valores dos seus dados)
+  const marsOrbitRadius = scaleOrbits.planetScale(planets.find(p => p.name === "Marte").orbit);
+  const jupiterOrbitRadius = scaleOrbits.planetScale(planets.find(p => p.name === "Júpiter").orbit);
+
+  // Define a faixa de órbita para os asteroides
+  const minOrbitRadius = marsOrbitRadius + 20; // Pouco depois de Marte
+  const maxOrbitRadius = jupiterOrbitRadius - 20; // Pouco antes de Júpiter
+  
+  // Gera os asteroides aleatoriamente
+  const numAsteroids = 1000;
+  const asteroids = d3.range(numAsteroids).map(() => ({
+    orbit: d3.randomUniform(minOrbitRadius, maxOrbitRadius)(),
+    angle: d3.randomUniform(0, 2 * Math.PI)(),
+    speed: d3.randomUniform(0.5, 2.0)(),
+    radius: d3.randomUniform(0.2, 1.5)()
+  }));
+
+  return asteroids;
+}
+
+// Célula 15: [Renderização dos asteroides] ====================================================
+
+makeAsteroidBelt = (systemGroup, asteroids) => {
+  // Cria um grupo de elementos (g) para cada asteroide.
+  // Isso facilita a transformação e animação individual de cada um.
+  const asteroidGroups = systemGroup.selectAll("g.asteroid")
+    .data(asteroids)
+    .join("g")
+    .attr("class", "asteroid");
+
+  // Adiciona um círculo para representar cada asteroide dentro de seu grupo.
+  asteroidGroups.append("circle")
+    .attr("cx", 0)
+    .attr("cy", 0)
+    .attr("r", d => d.radius) // Define o raio do asteroide usando o valor do dado.
+    .attr("fill", "gray") // Define a cor cinza para os asteroides.
+    .attr("fill-opacity", d3.randomUniform(0.2, 0.7)()); // Define uma opacidade aleatória para variedade visual.
+
+  return asteroidGroups;
+}
+
+// Célula 16: [Viewof Sistema Solar + Animação] ================================================
 
 viewof solarSystem = {
 
@@ -384,7 +428,10 @@ viewof solarSystem = {
   makeSpeedMenu(container, svg);
 
   // === Criação do sistema solar ===
-  const { planetGroups, moonsByPlanet } = makeSolarSystem(svg, planets, moons, scaleOrbits, containerAndDimensions.center);
+  const { planetGroups, moonsByPlanet, systemGroup } = makeSolarSystem(svg, planets, moons, scaleOrbits, containerAndDimensions.center);
+
+  // Chama a nova função para criar o cinturão de asteroides
+  const asteroidGroups = makeAsteroidBelt(systemGroup, asteroidBeltData);
 
   // === Lógica principal da animação (com Delta Time) ===
   const timer = d3.timer(rawElapsed => {
@@ -421,6 +468,14 @@ viewof solarSystem = {
           // Rotaciona primeiro em torno do Planeta (origem local), depois translada para a distância orbital.
           return `rotate(${moonAngle * 180 / Math.PI}) translate(${moonOrbitRadius}, 0)`;
         });
+      });
+
+      // === Movimento orbital dos asteroides ===
+      asteroidGroups.attr("transform", d => {
+        // Adiciona um fator multiplicador maior para desacelerar o movimento
+        const slowFactor = 50;
+        const angle = (animationTime / (d.orbit * d.speed * slowFactor)) * 2 * Math.PI;
+        return `rotate(${angle * 180 / Math.PI}) translate(${d.orbit}, 0)`;
       });
     }
     // Se estiver pausado, o loop simplesmente não faz nada dentro do 'if', 
