@@ -289,6 +289,49 @@ makeSolarSystem = (svg, planets, moons, scaleOrbits, center) => {
     .join("g")
     .attr("class", "planet");
 
+  function addSaturnRings(planetGroup, planetData) {
+    if (planetData.name !== "Saturno") return;
+
+    const baseColor = d3.color(planetData.color).darker(0.5); // Cor base marrom/bege 
+    const numRings = 4; // Número de faixas a serem desenhadas
+
+    // Definimos raios internos e externos fictícios para os anéis
+    const innerRadius = planetData.radius + 2; 
+    const outerRadius = planetData.radius + 10;
+
+    // Gera os dados para as múltiplas faixas dos anéis
+    const ringsData = d3.range(numRings).map(i => {
+      const t = i / (numRings - 1); // Normaliza o índice entre 0 e 1
+      return {
+        inner: innerRadius + t * (outerRadius - innerRadius),
+        outer: innerRadius + (t + 1/numRings) * (outerRadius - innerRadius),
+        // Varia a cor e opacidade levemente para dar textura
+        color: baseColor.brighter(t * 1.5), 
+        opacity: 0.2 + t * 0.6 // Anéis externos mais opacos
+      };
+    });
+
+    // Cria um grupo para todos os anéis e aplica a inclinação
+    const ringsGroup = planetGroup.append("g")
+      .attr("class", "saturn-rings-group")
+      .attr("transform", "rotate(90, 0, 0)"); // Inclina o conjunto inteiro
+
+    ringsGroup.selectAll("path.saturn-ring-segment")
+      .data(ringsData)
+      .join("path")
+      .attr("class", "saturn-ring-segment")
+      .attr("d", d => {
+        // Gerador de arco para cada segmento
+        return d3.arc()
+          .innerRadius(d.inner)
+          .outerRadius(d.outer)
+          .startAngle(0)
+          .endAngle(2 * Math.PI)();
+        })
+      .attr("fill", d => d.color)
+      .attr("fill-opacity", d => d.opacity);
+  }
+
   // === Órbitas das luas (desenhadas dentro do grupo do planeta) ===
     planetGroups.each(function(planetData){
       const planetGroup = d3.select(this);
@@ -311,6 +354,9 @@ makeSolarSystem = (svg, planets, moons, scaleOrbits, center) => {
     // === Renderização dos planetas e luas ===
     planetGroups.each(function(planetData) {
       const planetGroup = d3.select(this);
+
+      // Adiciona os anéis se for Saturno
+      addSaturnRings(planetGroup, planetData);
 
       // Planeta
       planetGroup.append("circle")
@@ -347,7 +393,7 @@ makeSolarSystem = (svg, planets, moons, scaleOrbits, center) => {
         .text(d => d.name);
     });
 
-  return { planetGroups, moonsByPlanet };
+  return { planetGroups, moonsByPlanet, systemGroup };
 };
 
 // Célula 14: [Geração dos dados para os asteroides] ===========================================
