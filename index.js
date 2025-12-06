@@ -253,7 +253,7 @@ makeSpeedMenu = function(container, svg) {
 
 // Célula 13: [Encapsulamento do Sistema Solar] ================================================
 
-makeSolarSystem = (svg, planets, moons, scaleOrbits, center) => {
+makeSolarSystem = (svg, planets, moons, scaleOrbits, center, onClickHandler) => {
   // Toda a renderização do sistema solar é movida para dentro de um grupo centralizado, facilitando a gestão das coordenadas relativas.
   const systemGroup = svg.append("g")
     .attr("transform", `translate(${center.x},${center.y})`);
@@ -265,6 +265,8 @@ makeSolarSystem = (svg, planets, moons, scaleOrbits, center) => {
     .attr("r", 20)
     .attr("fill", "yellow")
     .style("cursor", "pointer")
+    // Adiciona o evento de clique aqui para o Sol
+    .on("click", (event, d) => onClickHandler(event, {name: "Sol", type: "Sol", radius: 696000, period: 0, orbit: 0}, 'Sol'))
     .append("title")
     .text("Sol");
 
@@ -406,6 +408,8 @@ makeSolarSystem = (svg, planets, moons, scaleOrbits, center) => {
         .attr("stroke-width", 0.5)
         .attr("cx", 0)
         .attr("cy", 0)
+        // Adiciona o evento de clique aqui para os Planetas
+        .on("click", (event, d) => onClickHandler(event, d, 'planet'))
         .append("title")
         .text(d => d.name);
 
@@ -427,6 +431,8 @@ makeSolarSystem = (svg, planets, moons, scaleOrbits, center) => {
         .attr("cx", 0)
         .attr("cy", 0)
         .style("cursor", "pointer")
+        // Adiciona o evento de clique aqui para as Luas
+        .on("click", (event, d) => onClickHandler(event, d, 'moon'))
         .append("title")
         .text(d => d.name);
     });
@@ -487,11 +493,34 @@ viewof solarSystem = {
   let animationTime = 0;                    // Tempo acumulado (independente do timer do D3)
   let lastFrameTime = performance.now();    // Rastreamento do tempo entre frames para suavidade
 
+  // Variáveis para rastrear o estado da transformação do zoom (usado para fechar suavemente)
+  let currentTransform = d3.zoomIdentity;
+
   // === Container principal ===
-  const { container, svg } = makeContainerCell(containerAndDimensions.width, containerAndDimensions.height);
+  // Passamos a largura do painel para o container (350px)
+  const { container, svg } = makeContainerCell(containerAndDimensions.width + 350, containerAndDimensions.height);
 
   // === Fundo Estrelado ===
   makeStarfield(svg, containerAndDimensions.width, containerAndDimensions.height);
+
+  // === Função para fechar painel e resetar visualização ===
+  const closePanelAndResetView = () => {
+    mutable selectedObject = null; // Reseta o estado de seleção
+    // Aplica a transição de volta ao normal (scale 1, no centro original)
+    systemGroup.transition()
+      .duration(800)
+      .attr("transform", `translate(${containerAndDimensions.center.x},${containerAndDimensions.center.y}) scale(1)`);
+      
+    infoPanel.style.display = "none"; // Esconde o painel visualmente
+
+    // Retoma a animação se estava pausada para o zoom
+    if (!mutable isRunning) {
+        mutable isRunning = true; 
+        buttonText.text("Pause");
+        // Ajusta o tempo acumulado para evitar "pulo" na animação quando retomar
+        mutable accumulatedPauseTime += lastRawElapsed - mutable pauseStart;
+    }
+  };
 
   // === Botão Play/Pause ===
   const {text: buttonText } = makePlayPauseButton(svg, () => {
@@ -511,13 +540,154 @@ viewof solarSystem = {
   // === Menu de Velocidade (Engrenagem + Controles) ===
   makeSpeedMenu(container, svg);
 
-  // === Criação do sistema solar ===
-  const { planetGroups, moonsByPlanet, systemGroup } = makeSolarSystem(svg, planets, moons, scaleOrbits, containerAndDimensions.center);
+  // === Painel de Informações ===
+  // Passamos a função de fechamento para makeInfoPanel
+  const infoPanel = makeInfoPanel(container, containerAndDimensions.width, closePanelAndResetView);
 
-  // Chama a nova função para criar o cinturão de asteroides
+  // Função interna para preencher e mostrar o painel
+  const updateInfoPanel = (obj) => {
+    if(!obj){
+      infoPanel.style.display = "none";
+      return;
+    }
+
+    infoPanel.querySelector("#objectName").textContent = obj.name;
+
+    // === LÓGICA ATUALIZADA PARA O TIPO DE OBJETO ===
+    let objectTypeDisplay = 'Desconhecido';
+    if (obj.type === 'Sol') {
+      objectTypeDisplay = 'Estrela';
+    } else if (obj.type === 'planet') {
+      objectTypeDisplay = 'Planeta';
+    } else if (obj.type === 'moon') {
+      objectTypeDisplay = 'Lua';
+    }
+    infoPanel.querySelector("#objectType").textContent = objectTypeDisplay;
+    
+    // Adicione mais detalhes ou gráficos aqui futuramente
+    infoPanel.querySelector("#objectRadius").textContent = obj.radius;
+    infoPanel.querySelector("#objectPeriod").textContent = obj.period;
+    infoPanel.querySelector("#objectOrbit").textContent = obj.orbit === 0 ? 'N/A' : obj.orbit;
+    
+    infoPanel.style.display = "block";
+  };
+
+  // Função para calcular a posição X, Y de um objeto baseado no tempo de animação
+  const getObjectPosition = (d, currentTime) => {
+    // Calcula a posição do objeto relativo ao seu centro orbital (Sol para planetas, Planeta para luas)
+    let angle, orbitRadius;
+
+    if(d.type === 'planet' || d.type === 'Sol'){
+      angle = (currentTime / (d.period * 100)) * 2 * Math.PI;
+      orbitRadius = scaleOrbits.planetScale(d.orbit);
+      
+      // Garante que o retorno seja (0, 0) se for o Sol
+      if(d.type === 'Sol') return {x: 0, y: 0}; 
+
+      return { x: orbitRadius * Math.cos(angle), y: orbitRadius * Math.sin(angle) };
+    
+    } else if(d.type === 'moon'){
+      // Encontra os dados do planeta pai
+      const parentPlanet = planets.find(p => p.name === d.planet);
+      if(!parentPlanet) return {x: 0, y: 0};
+
+      // 1. Posição do planeta pai (relativo ao Sol)
+      const planetAngle = (currentTime / (parentPlanet.period * 100)) * 2 * Math.PI;
+      const planetOrbitRadius = scaleOrbits.planetScale(parentPlanet.orbit);
+      const planetX = planetOrbitRadius * Math.cos(planetAngle);
+      const planetY = planetOrbitRadius * Math.sin(planetAngle);
+
+      // 2. Posição da lua (relativa ao planeta pai)
+      const moonAngle = (currentTime / (d.period * 50)) * 2 * Math.PI;
+      const moonOrbitRadius = scaleOrbits.moonScale(d.orbit);
+      const moonX = moonOrbitRadius * Math.cos(moonAngle);
+      const moonY = moonOrbitRadius * Math.sin(moonAngle);
+
+      // Posição final da lua (relativa ao Sol)
+      return { x: planetX + moonX, y: planetY + moonY };
+    }
+    return { x: 0, y: 0 }; // Fallback
+  };
+
+  // === Criação do sistema solar ===
+  // Passamos a função handleClick simplificada que apenas atualiza a mutable
+  const { planetGroups, moonsByPlanet, systemGroup } = makeSolarSystem(
+    svg, 
+    planets, 
+    moons, 
+    scaleOrbits, 
+    containerAndDimensions.center, 
+    (event, d, type) => {
+      event.stopPropagation();
+
+      // Pausa a animação imediatamente
+      if (mutable isRunning) {
+        mutable isRunning = false;
+        buttonText.text("Play");
+        mutable pauseStart = lastRawElapsed; 
+      }
+      
+      mutable selectedObject = { ...d, type: type };
+      // isPanelOpen agora é gerenciado implicitamente pela presença de selectedObject
+      // Chamamos a função do painel diretamente aqui no click:
+      updateInfoPanel(mutable selectedObject); // Abre o painel
+
+      // CÁLCULO DE ZOOM: Usa a função getObjectPosition para obter a coordenada exata
+      const {x: targetX, y: targetY} = getObjectPosition(mutable selectedObject, animationTime);
+
+      const scale = 5; // Fator de zoom fixo para todos os objetos
+
+      // Aplica a transformação suave manualmente
+      // Usamos .attr("transform", ...) e d3.transition para evitar conflitos com d3.zoom API
+      systemGroup.transition()
+        .duration(1000)
+        .attr("transform", 
+          `translate(${containerAndDimensions.center.x}, ${containerAndDimensions.center.y}) scale(${scale}) translate(${-targetX}, ${-targetY})`
+        );
+    }
+  );
+
+  // Desabilitar completamente a interação manual (scroll/drag/wheel)
+  svg.on(".zoom", null);
+
+  // Chama a função para criar o cinturão de asteroides
   const asteroidGroups = makeAsteroidBelt(systemGroup, asteroidBeltData);
 
-  // === Lógica principal da animação (com Delta Time) ===
+  // Função de atualização da posição dos elementos (chamada inicial e no timer)
+  const updatePositions = (time) => {
+    // === Movimento orbital dos planetas ===
+    planetGroups.attr("transform", d => {
+      const angle = (animationTime / (d.period * 100)) * 2 * Math.PI;
+      const orbitRadius = scaleOrbits.planetScale(d.orbit);
+      // Rotaciona primeiro em torno do Sol (origem), depois translada para a distância orbital.
+      return `rotate(${angle * 180 / Math.PI}) translate(${orbitRadius}, 0)`;
+    });
+
+    // === Movimento orbital das luas (relativo ao planeta) ===
+    planetGroups.each(function(planetData) {
+      const planetMoons = moonsByPlanet.get(planetData.name);
+      if (!planetMoons) return;
+      d3.select(this).selectAll("g.moon").attr("transform", d => {
+        const moonAngle = (time / (d.period * 50)) * 2 * Math.PI;
+        const moonOrbitRadius = scaleOrbits.moonScale(d.orbit);
+        // Rotaciona primeiro em torno do Planeta (origem local), depois translada para a distância orbital.
+        return `rotate(${moonAngle * 180 / Math.PI}) translate(${moonOrbitRadius}, 0)`;
+      });
+    });
+
+    // === Movimento orbital dos asteroides ===
+    asteroidGroups.attr("transform", d => {
+      // Adiciona um fator multiplicador maior para desacelerar o movimento
+      const slowFactor = 50;
+      const angle = (time / (d.orbit * d.speed * slowFactor)) * 2 * Math.PI;
+      return `rotate(${angle * 180 / Math.PI}) translate(${d.orbit}, 0)`;
+    });
+  }
+
+  // Aplica as posições iniciais imediatamente após a criação dos elementos
+  updatePositions(animationTime);
+
+  // === Lógica principal da animação ===
   const timer = d3.timer(rawElapsed => {
     // Mantém o último tempo bruto para lógica de pausa/play
     lastRawElapsed = rawElapsed;
@@ -527,40 +697,12 @@ viewof solarSystem = {
     const deltaTime = currentFrameTime - lastFrameTime;
     lastFrameTime = currentFrameTime;
 
-    if (mutable isRunning) {
+    // A animação só ocorre se a simulação estiver rodando E nada estiver selecionado (sem zoom fixo)
+    if(!mutable selectedObject && mutable isRunning){
       // Atualiza tempo interno da simulação baseado na velocidade
       animationTime += deltaTime * mutable speed;
-      
-      // === Movimento orbital dos planetas ===
-      planetGroups.attr("transform", d => {
-        const angle = (animationTime / (d.period * 100)) * 2 * Math.PI;
-        const orbitRadius = scaleOrbits.planetScale(d.orbit);
-        // Rotaciona primeiro em torno do Sol (origem), depois translada para a distância orbital.
-        return `rotate(${angle * 180 / Math.PI}) translate(${orbitRadius}, 0)`;
-      });
-
-      // === Movimento orbital das luas (relativo ao planeta) ===
-      planetGroups.each(function(planetData) {
-        const planetMoons = moonsByPlanet.get(planetData.name);
-        if (!planetMoons) return;
-      
-        const moonGroups = d3.select(this).selectAll("g.moon");
-      
-        moonGroups.attr("transform", d => {
-          const moonAngle = (animationTime / (d.period * 50)) * 2 * Math.PI;
-          const moonOrbitRadius = scaleOrbits.moonScale(d.orbit);
-          // Rotaciona primeiro em torno do Planeta (origem local), depois translada para a distância orbital.
-          return `rotate(${moonAngle * 180 / Math.PI}) translate(${moonOrbitRadius}, 0)`;
-        });
-      });
-
-      // === Movimento orbital dos asteroides ===
-      asteroidGroups.attr("transform", d => {
-        // Adiciona um fator multiplicador maior para desacelerar o movimento
-        const slowFactor = 50;
-        const angle = (animationTime / (d.orbit * d.speed * slowFactor)) * 2 * Math.PI;
-        return `rotate(${angle * 180 / Math.PI}) translate(${d.orbit}, 0)`;
-      });
+      // Chamamos a função de atualização de posições
+      updatePositions(animationTime);
     }
     // Se estiver pausado, o loop simplesmente não faz nada dentro do 'if', 
     // e o accumulatedPauseTime é ajustado no próximo clique em "Play".
@@ -570,4 +712,55 @@ viewof solarSystem = {
   invalidation.then(() => timer.stop());
 
   return container;
+}
+
+// Célula 16.1: [Estado de Seleção] ==========================================================
+// Armazena o objeto selecionado (planeta, lua ou sol). Null se nada estiver selecionado.
+mutable selectedObject = null;
+
+// Célula 16.2: [Estado do painel lateral] ===================================================
+// Controla a visibilidade do painel lateral.
+mutable isPanelOpen = false;
+
+// Célula 16.3: [Painel de Informações Lateral] ==============================================
+
+makeInfoPanel = function(container, width, onCloseHandler) {
+  
+  const infoPanel = document.createElement("div");
+  infoPanel.style.position = "absolute";
+  infoPanel.style.top = "10px";
+  infoPanel.style.right = "0px";
+  infoPanel.style.height = "90%";
+  infoPanel.style.width = "350px"; // Larga o suficiente para gráficos e informações
+  infoPanel.style.background = "#1a1a1a";
+  infoPanel.style.padding = "20px";
+  infoPanel.style.color = "white";
+  infoPanel.style.boxShadow = "-4px 0 8px rgba(0,0,0,0.5)";
+  infoPanel.style.display = "none"; // Oculto por padrão
+  infoPanel.style.overflowY = "auto";
+  infoPanel.style.transition = "right 0.5s ease-in-out"; // Transição suave
+
+  // Estrutura interna inicial (será preenchida dinamicamente)
+  infoPanel.innerHTML = `
+    <button id="closePanelBtn" style="float: right; background: #555; border: none; color: white; cursor: pointer; padding: 5px 10px;">✕ Fechar</button>
+    <h2 id="objectName">Nome do Objeto</h2>
+    <hr style="border-color:#555;">
+    <div id="objectDetails">
+      <!-- Detalhes e gráficos virão aqui -->
+      <p><strong>Tipo:</strong> <span id="objectType"></span></p>
+      <p><strong>Raio:</strong> <span id="objectRadius"></span> km</p>
+      <p><strong>Período Orbital:</strong> <span id="objectPeriod"></span> dias</p>
+      <p><strong>Distância do Sol:</strong> <span id="objectOrbit"></span> km</p>
+    </div>
+    <div id="chartArea" style="margin-top: 20px;">
+        <!-- Área para gráficos D3 futuros -->
+    </div>
+  `;
+
+  container.appendChild(infoPanel);
+
+  // Adiciona o listener para fechar o painel, usando o novo handler passado
+  infoPanel.querySelector("#closePanelBtn").addEventListener("click", onCloseHandler);
+
+  return infoPanel;
 }
