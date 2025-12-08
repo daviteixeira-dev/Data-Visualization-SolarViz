@@ -72,13 +72,13 @@ export default async function handler(req, res) {
 
     const params = new URLSearchParams({
       format: 'json',
-      COMMAND: `'${cmd}'`,
-      EPHEM_TYPE: `'VECTORS'`,
-      CENTER: `@sun`, // center can be '@sun' or '@0' (SSB); adjust if you want planet-relative moons
-      START_TIME: `'${startTimeParam}'`,
-      STOP_TIME: `'${startTimeParam}'`,
-      STEP_SIZE: `'1 d'`, // single epoch
-      VEC_TABLE: `'1'` // request vector table
+      COMMAND: cmd,
+      EPHEM_TYPE: 'VECTORS',
+      CENTER: '@sun', // center can be '@sun' or '@0' (SSB); adjust if you want planet-relative moons
+      START_TIME: startTimeParam,
+      STOP_TIME: startTimeParam,
+      STEP_SIZE: '1 d', // single epoch
+      VEC_TABLE: '1' // request vector table
     });
 
     const horizonsUrl = `https://ssd-api.jpl.nasa.gov/horizons.api?${params.toString()}`;
