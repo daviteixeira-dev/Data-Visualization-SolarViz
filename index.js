@@ -33,8 +33,13 @@ moons = [
 
 // Célula 4: [Escala das orbitas dos planetas e das luas] ======================================
 scaleOrbits = {
+
+  // Usamos um domínio fixo e robusto que cobre todos os planetas (em KM, de Mercúrio a Netuno)
+  const minOrbitKM = 5e7; // ~50 milhões km (Mercúrio)
+  const maxOrbitKM = 4.5e9; // ~4.5 bilhões km (Netuno)
+  
   const planetScale = d3.scaleLog()
-    .domain([d3.min(planets, d => d.orbit), d3.max(planets, d => d.orbit)])
+    .domain([minOrbitKM, maxOrbitKM])
     .range([30, 300]); // Definimos um range mínimo (30px) para afastar Mercúrio do Sol, e um máximo (300px).
 
   const moonScale = d3.scaleLog()
@@ -493,6 +498,8 @@ viewof solarSystem = {
   let animationTime = 0;                    // Tempo acumulado (independente do timer do D3)
   let lastFrameTime = performance.now();    // Rastreamento do tempo entre frames para suavidade
 
+  let liveInterval = null;
+
   // Variáveis para rastrear o estado da transformação do zoom (usado para fechar suavemente)
   let currentTransform = d3.zoomIdentity;
 
@@ -572,6 +579,24 @@ viewof solarSystem = {
     infoPanel.style.display = "block";
   };
 
+  // === Projeção das escalas ===
+  const projectLivePosition = (pos) => {
+    // 1. Calcula a distância real (Pitágoras) em KM a partir dos dados da API
+    const r = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
+  
+    // 2. USA A MESMA planetScale da Célula 4 para escalonar a distância real
+    const scaledR = scaleOrbits.planetScale(r);
+
+    // 3. Calcula o ângulo real atual (Atan2)
+    const angle = Math.atan2(pos.y, pos.x);
+
+    // 4. Retorna a posição projetada para o SVG
+    return {
+      x: scaledR * Math.cos(angle),
+      y: scaledR * Math.sin(angle)
+    };
+  };
+
   // Função para calcular a posição X, Y de um objeto baseado no tempo de animação
   const getObjectPosition = (d, currentTime) => {
     // Calcula a posição do objeto relativo ao seu centro orbital (Sol para planetas, Planeta para luas)
@@ -608,6 +633,57 @@ viewof solarSystem = {
     }
     return { x: 0, y: 0 }; // Fallback
   };
+
+  // === Botão de Ativar LIVE ===
+  makeLiveButton(svg, async () => {
+    mutable isLiveMode = !mutable isLiveMode;
+
+    if (mutable isLiveMode) {
+      // Pausa simulação
+      //mutable isRunning = false;
+      //buttonText.text("Play");
+
+      liveStatusText.text("Carregando..."); // <-- Mostra o carregando
+
+      // Buscamos a posição atual imediatamente
+      // Passamos o callback para função fetch
+      mutable livePositions = await fetchAllLivePositions(status => {
+        liveStatusText.text(status); // <-- Atualiza o texto com o resultado
+        if (status.includes("Erro")) {
+          liveStatusText.attr("fill", "red");
+        } else {
+          liveStatusText.attr("fill", "lightgreen");
+        }
+      });
+
+      // Configura a atualização periódica (15s)
+      liveInterval = setInterval(async () => {
+        liveStatusText.text("Atualizando...");
+        mutable livePositions = await fetchAllLivePositions(status => {
+          liveStatusText.text("LIVE Ativo: " + status.toLowerCase().replace("sucesso!", "dados atualizados."));
+        });
+      }, 15000);
+
+    } else {
+      // Modo Simulação (desliga o LIVE)
+      clearInterval(liveInterval);
+      liveInterval = null;
+      liveStatusText.text("Simulação Ativa"); // <-- Limpa o status
+      liveStatusText.attr("fill", "gray");
+
+      //mutable isRunning = true;
+      //buttonText.text("Pause");
+    }
+  });
+
+  // === Indicador de Status LIVE ===
+  const liveStatusText = svg.append("text")
+    .attr("x", 220) // Posição X ao lado do botão LIVE
+    .attr("y", 673) // Posição Y centralizada com o botão
+    .attr("fill", "gray")
+    .attr("text-anchor", "start")
+    .style("font-size", "12px")
+    .text(""); // Texto inicial vazio
 
   // === Criação do sistema solar ===
   // Passamos a função handleClick simplificada que apenas atualiza a mutable
@@ -655,12 +731,56 @@ viewof solarSystem = {
 
   // Função de atualização da posição dos elementos (chamada inicial e no timer)
   const updatePositions = (time) => {
+    
     // === Movimento orbital dos planetas ===
-    planetGroups.attr("transform", d => {
-      const angle = (animationTime / (d.period * 100)) * 2 * Math.PI;
-      const orbitRadius = scaleOrbits.planetScale(d.orbit);
-      // Rotaciona primeiro em torno do Sol (origem), depois translada para a distância orbital.
-      return `rotate(${angle * 180 / Math.PI}) translate(${orbitRadius}, 0)`;
+
+    // 1. Definimos a seleção base dos planetas
+    const selection = planetGroups;
+
+    // 2. Aplique a transição SE estiver no modo LIVE, senão atualize instantaneamente (simulação padrão)
+    const transitionSelection = mutable isLiveMode ? selection.transition().duration(1000) : selection;
+
+    // 3. Aplique a transformação (mesma lógica de cálculo de x, y)
+    transitionSelection.attr("transform", d => {
+
+      let x, y;
+      
+      if(mutable isLiveMode){
+        const live = mutable livePositions[d.name];
+
+        // Se a posição live não existir (falha no fetch ou ainda carregando), 
+        // usamos a posição de simulação como fallback temporário.
+
+        if(!live) {
+          // Fallback para a posição da simulação se o LIVE falhar
+          const angle = (animationTime / (d.period * 100)) * 2 * Math.PI;
+          const orbitRadius = scaleOrbits.planetScale(d.orbit);
+          x = orbitRadius * Math.cos(angle);
+          y = orbitRadius * Math.sin(angle);
+          
+        }else{
+          // A função projectLivePosition já retorna {x, y} escalonados
+          const pos = projectLivePosition(live);
+  
+          x = pos.x;
+          y = pos.y;
+        }
+        
+      } else {
+        // Modo Simulação: cálculo manual baseado no tempo
+        const angle = (animationTime / (d.period * 100)) * 2 * Math.PI;
+        const orbitRadius = scaleOrbits.planetScale(d.orbit);
+        
+        // Rotaciona primeiro em torno do Sol (origem), depois translada para a distância orbital.
+        //return `rotate(${angle * 180 / Math.PI}) translate(${orbitRadius}, 0)`;
+
+        // Para manter consistência com o modo Live, calculamos x e y manualmente
+        x = orbitRadius * Math.cos(angle);
+        y = orbitRadius * Math.sin(angle);
+      }
+
+      return `translate(${x}, ${y})`;
+      
     });
 
     // === Movimento orbital das luas (relativo ao planeta) ===
@@ -709,8 +829,10 @@ viewof solarSystem = {
   });
 
   // Limpeza automática do timer no Observable
-  invalidation.then(() => timer.stop());
-
+  invalidation.then(() => {
+    timer.stop();
+    if (liveInterval) clearInterval(liveInterval);
+  });
   return container;
 }
 
@@ -764,3 +886,87 @@ makeInfoPanel = function(container, width, onCloseHandler) {
 
   return infoPanel;
 }
+
+// Célula 17: [Estado global do modo LIVE] ===================================================
+
+// Célula 17.1: [Modo de operação] ===========================================================
+mutable isLiveMode = false;
+
+// Célula 17.2: [Cache local das posições LIVE] ==============================================
+mutable livePositions = {};
+
+// Célula 18: [Fetch LIVE para TODOS os planetas] ============================================
+
+async function fetchAllLivePositions(setStatus = () => {}) {
+
+  setStatus("Carregando..."); // Define o status inicial 
+  
+  const planetNames = [
+    "Mercury","Venus","Earth","Mars",
+    "Jupiter","Saturn","Uranus","Neptune"
+  ];
+
+  const requests = planetNames.map(p =>
+    fetch(`https://data-visualization-solar-viz.vercel.app/api/live?body=${p}`)
+      .then(r => r.json())
+      .then(j => ({ name: p, data: j }))
+      .catch(() => null)
+  );
+
+  const results = await Promise.all(requests);
+
+  const positions = {};
+
+  const nameMap = {
+    "Mercury": "Mercúrio", "Venus": "Vênus", "Earth": "Terra", "Mars": "Marte",
+    "Jupiter": "Júpiter", "Saturn": "Saturno", "Uranus": "Urano", "Neptune": "Netuno"
+  };
+  
+  for (const r of results) {
+    if (!r || !r.data?.position) continue;
+
+    //const { x_km, y_km } = r.data.position;
+
+    const ptName = nameMap[r.name]; // Converte para o nome usado no seu array planets
+
+    // Projeção simples heliocêntrica 2D
+    positions[ptName] = {
+      x: r.data.position.x_km,
+      y: r.data.position.y_km
+    };
+  }
+
+  // Verificação de sucesso para o status
+  const fetchedCount = Object.keys(positions).length;
+  if (fetchedCount === planetNames.length) {
+      setStatus("Sucesso!");
+  } else {
+      setStatus(`Erro: ${fetchedCount} planetas carregados.`);
+  }
+
+  return positions;
+}
+
+// Célula 20: [Botão LIVE] ===================================================================
+
+makeLiveButton = function(svg, onToggle){
+  const g = svg.append("g")
+    .attr("transform","translate(150,660)")
+    .style("cursor","pointer")
+    .on("click", onToggle);
+
+  g.append("rect")
+    .attr("width", 55)
+    .attr("height", 25)
+    .attr("fill", "#8b0000")
+    .attr("rx", 5);
+
+  const text = g.append("text")
+    .attr("x", 27)
+    .attr("y", 17)
+    .attr("fill", "white")
+    .attr("text-anchor","middle")
+    .text("LIVE");
+
+  return { g, text };
+};
