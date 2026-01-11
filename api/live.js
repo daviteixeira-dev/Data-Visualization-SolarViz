@@ -67,6 +67,8 @@ function extractVector(json) {
 
 export default async function handler(req, res) {
   try {
+    res.setHeader('Access-Control-Allow-Origin', '*'); // Permite qualquer origem por enquanto
+
     const urlObj = new URL(req.url, `http://${req.headers.host}`);
     const body = (urlObj.searchParams.get('body') || 'Earth').trim();
     let time = (urlObj.searchParams.get('time') || 'now').trim();
@@ -153,11 +155,6 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Could not parse Horizons response', raw: json });
     }
 
-    if(!position) {
-      console.error('Could not parse vectors from Horizons response', json);
-      return res.status(500).json({ error: 'Could not parse Horizons response', raw: json });
-    }
-
     const out = {
       body: canonical,
       time: startStr,
@@ -172,10 +169,11 @@ export default async function handler(req, res) {
     CACHE[cacheKey] = { ts: Math.floor(Date.now()/1000), data: out };
 
     // Set caching headers for CDN
-    res.setHeader('Cache-Control', `s-maxage=${CACHE_TTL}, stale-while-revalidate=30`);
+    // res.setHeader('Cache-Control', `s-maxage=${CACHE_TTL}, stale-while-revalidate=30`);
     return res.status(200).json({ cached: false, ...out });
 
   } catch (err) {
+    res.setHeader('Access-Control-Allow-Origin', '*');
     console.error('handler error', err);
     return res.status(500).json({ error: 'internal', details: String(err) });
   }
