@@ -1,0 +1,23 @@
+{
+    "generated_at": "2026-01-16T12:00:00Z",
+    "source": "JPL Horizons",
+    "planets": {
+        "Terra": {
+            "id": 399,
+            "radius": 6371,
+            "orbit_km": 149597870,
+            "period_days": 365.25,
+            "eccentricity": 0.0167,
+            "perihelion_arg_deg": 102.937
+        }
+    },
+    "moons": {
+        "Lua": {
+            "id": 301,
+            "planet": "Terra",
+            "radius": 1737,
+            "orbit_km": 384400,
+            "period_days": 27.32
+        }
+    }
+}
