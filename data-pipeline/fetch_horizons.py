@@ -1,6 +1,6 @@
 import os
 import json
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from astroquery.jplhorizons import Horizons
 
 OUTPUT_PATH = "data/planets_static.json"
@@ -66,22 +66,42 @@ MOONS = {
 # HELPERS
 # ----------------------
 
-def today():
-    return datetime.utcnow().strftime("%Y-%m-%d")
+def fetch_orbital_elements(body_id, center=10):
+    
+    today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
 
-def fetch_orbital_elements(body_id, center):
-    obj = Horizons(
-        id=body_id,
-        location=f"500@{center}"
-        epochs=today()
-    )
-    el = obj.elements()[0]
+    try:
+        obj = Horizons(
+            id=body_id,
+            location=f"500@{center}",
+            epochs=today
+        )
+        el = obj.elements()[0]
+    except Exception:
+        obj = Horizons(
+            id=body_id,
+            location=f"500@{center}",
+            epochs={
+                "start": today,
+                "stop": (datetime.now(timezone.utc) + timedelta(days=1)).strftime("%Y-%m-%d"),
+                "step": "1d"
+            }
+        )
+        el = obj.elements()[0]
+
+    a_AU = float(el["a"])
+    period_days = float(el["P"])
 
     return {
-        "orbit_km": float(el["a"]) * 149597870.7,  # AU → km
-        "period_days": float(el["P"]),
+        "orbit_km": a_AU * 149597870.7,  # AU → km
+        "period_days": period_days,
         "eccentricity": float(el["e"]),
-        "perihelion_arg_deg": float(el["w"])
+        "perihelion_arg_deg": float(el["w"]),
+        "a_AU": a_AU,
+        "i_deg": float(el["incl"]),
+        "raan_deg": float(el["Omega"]),
+        "argp_deg": float(el["w"]),
+        "M_deg": float(el["M"])
     }
 
 # ----------------------
@@ -90,7 +110,7 @@ def fetch_orbital_elements(body_id, center):
 
 def main():
     data = {
-        "generated_at": datetime.utcnow().isoformat() + "Z",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
         "source": "JPL Horizons",
         "planets": {},
         "moons": {}

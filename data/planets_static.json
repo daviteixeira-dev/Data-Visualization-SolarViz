@@ -1,23 +1,160 @@
 {
-    "generated_at": "2026-01-16T12:00:00Z",
-    "source": "JPL Horizons",
-    "planets": {
-        "Terra": {
-            "id": 399,
-            "radius": 6371,
-            "orbit_km": 149597870,
-            "period_days": 365.25,
-            "eccentricity": 0.0167,
-            "perihelion_arg_deg": 102.937
-        }
+  "generated_at": "2026-01-16T18:02:28.224560+00:00",
+  "source": "JPL Horizons",
+  "planets": {
+    "Mercúrio": {
+      "id": 199,
+      "radius": 2440,
+      "orbit_km": 57909293.78622749,
+      "period_days": 87.96961185590808,
+      "eccentricity": 0.2056372670519717,
+      "perihelion_arg_deg": 29.199296640055,
+      "a_AU": 0.3870997195030764,
+      "i_deg": 7.003394087381403,
+      "raan_deg": 48.29863412073864,
+      "argp_deg": 29.199296640055,
+      "M_deg": 219.0356440764292
     },
-    "moons": {
-        "Lua": {
-            "id": 301,
-            "planet": "Terra",
-            "radius": 1737,
-            "orbit_km": 384400,
-            "period_days": 27.32
-        }
+    "Vênus": {
+      "id": 299,
+      "radius": 6052,
+      "orbit_km": 108209291.63976859,
+      "period_days": 224.7018294717812,
+      "eccentricity": 0.006781730522657978,
+      "perihelion_arg_deg": 54.88850114132981,
+      "a_AU": 0.7233344374049877,
+      "i_deg": 3.394388330807455,
+      "raan_deg": 76.60710199675545,
+      "argp_deg": 54.88850114132981,
+      "M_deg": 169.1477859789574
+    },
+    "Terra": {
+      "id": 399,
+      "radius": 6371,
+      "orbit_km": 149711485.68148014,
+      "period_days": 365.6725302446249,
+      "eccentricity": 0.01740993580762735,
+      "perihelion_arg_deg": 280.9012687807167,
+      "a_AU": 1.000759469242099,
+      "i_deg": 0.003044301870954442,
+      "raan_deg": 182.0190734055176,
+      "argp_deg": 280.9012687807167,
+      "M_deg": 12.14204830828004
+    },
+    "Marte": {
+      "id": 499,
+      "radius": 3390,
+      "orbit_km": 227941522.46968263,
+      "period_days": 686.9820755312821,
+      "eccentricity": 0.09348383180831421,
+      "perihelion_arg_deg": 286.6224750837143,
+      "a_AU": 1.523694965731104,
+      "i_deg": 1.847485583775625,
+      "raan_deg": 49.48292313678642,
+      "argp_deg": 286.6224750837143,
+      "M_deg": 323.6831495235853
+    },
+    "Júpiter": {
+      "id": 599,
+      "radius": 69911,
+      "orbit_km": 778181667.1224552,
+      "period_days": 4331.363305906536,
+      "eccentricity": 0.04819358953211401,
+      "perihelion_arg_deg": 273.3894865174759,
+      "a_AU": 5.201823150832155,
+      "i_deg": 1.303611627201746,
+      "raan_deg": 100.5183085880706,
+      "argp_deg": 273.3894865174759,
+      "M_deg": 90.79194047923981
+    },
+    "Saturno": {
+      "id": 699,
+      "radius": 58232,
+      "orbit_km": 1427747657.9921677,
+      "period_days": 10767.76176756482,
+      "eccentricity": 0.05543891531593222,
+      "perihelion_arg_deg": 338.4347187221542,
+      "a_AU": 9.543903608463378,
+      "i_deg": 2.486826555903943,
+      "raan_deg": 113.5689027032646,
+      "argp_deg": 338.4347187221542,
+      "M_deg": 276.4209493540757
+    },
+    "Urano": {
+      "id": 799,
+      "radius": 25362,
+      "orbit_km": 2884714421.7802343,
+      "period_days": 30928.23007633313,
+      "eccentricity": 0.04685860130372828,
+      "perihelion_arg_deg": 91.39434171461092,
+      "a_AU": 19.28312487525422,
+      "i_deg": 0.7742709301973492,
+      "raan_deg": 73.98845805928585,
+      "argp_deg": 91.39434171461092,
+      "M_deg": 259.543986982157
+    },
+    "Netuno": {
+      "id": 899,
+      "radius": 24622,
+      "orbit_km": 4505958569.375614,
+      "period_days": 60378.16594138253,
+      "eccentricity": 0.01116360549235692,
+      "perihelion_arg_deg": 275.2427358047063,
+      "a_AU": 30.12047262632338,
+      "i_deg": 1.768604857271655,
+      "raan_deg": 131.7264624833269,
+      "argp_deg": 275.2427358047063,
+      "M_deg": 315.0432418654685
     }
+  },
+  "moons": {
+    "Lua": {
+      "id": 301,
+      "planet": "Terra",
+      "radius": 1737,
+      "eccentricity": 0.05193350157405206,
+      "orbit_km": 385332.04109191673,
+      "period_days": 27.38389995464754
+    },
+    "Io": {
+      "id": 501,
+      "planet": "Júpiter",
+      "radius": 1821,
+      "eccentricity": 0.004380976778209971,
+      "orbit_km": 422030.7460685832,
+      "period_days": 1.771359962822786
+    },
+    "Europa": {
+      "id": 502,
+      "planet": "Júpiter",
+      "radius": 1560,
+      "eccentricity": 0.009700775182966399,
+      "orbit_km": 671227.880488707,
+      "period_days": 3.553042428394214
+    },
+    "Ganymede": {
+      "id": 503,
+      "planet": "Júpiter",
+      "radius": 2634,
+      "eccentricity": 0.001666717437586028,
+      "orbit_km": 1070566.0809346559,
+      "period_days": 7.15655764340375
+    },
+    "Callisto": {
+      "id": 504,
+      "planet": "Júpiter",
+      "radius": 2410,
+      "eccentricity": 0.007536586704875644,
+      "orbit_km": 1883682.7783905144,
+      "period_days": 16.70322178824581
+    },
+    "Titan": {
+      "id": 606,
+      "planet": "Saturno",
+      "radius": 2575,
+      "eccentricity": 0.02882068412789647,
+      "orbit_km": 1221961.8681967156,
+      "period_days": 15.94787738904835
+    }
+  }
 }
