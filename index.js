@@ -276,30 +276,25 @@ makeSolarSystem = (svg, planets, moons, scaleOrbits, center, onClickHandler) => 
     .append("title")
     .text("Sol");
 
-  // === Órbitas dos planetas (elipses reais usando <ellipse>) ===
-  systemGroup.selectAll("ellipse.orbit-sun")
+  // === Órbitas dos planetas (traçadas reais via Path) ===
+  systemGroup.selectAll("path.orbit-sun")
     .data(planets)
-    .join("ellipse") // Usando o elemento ellipse do SVG
+    .join("path")
     .attr("class", "orbit-sun")
     .attr("fill", "none")
     .attr("stroke", "rgba(255,255,255,0.2)")
     .attr("stroke-dasharray", "2,2")
-    .attr("rx", d => { // Raio X (semieixo maior 'a')
-      return scaleOrbits.planetScale(d.orbit);
-    })
-    .attr("ry", d => { // Raio Y (semieixo menor 'b')
-      const a_scaled = scaleOrbits.planetScale(d.orbit); 
-      return a_scaled * Math.sqrt(1 - d.e ** 2);
-    })
-    .attr("cx", d => { // Centro X da elipse (deslocado para o foco 'c')
-        const a_scaled = scaleOrbits.planetScale(d.orbit); 
-        const c_scaled = a_scaled * d.e;
-        return -c_scaled; // Deslocamos para a esquerda para que o Sol (0,0) fique no foco
-    })
-    .attr("cy", 0) // Centro Y da elipse
-    .attr("transform", d => { // Aplica a rotação da órbita
-      // Rotaciona a elipse inteira em torno do Sol (0,0) pelo ângulo do periélio
-      return `rotate(${d.p_arg} 0 0)`; 
+    .attr("d", d => {
+      // 1. Gera os pontos para o planeta específico
+      const points = generateOrbitPathPoints(
+        d, 
+        auxiliaryOrbitalFunctions, // Passa a referência para a Célula 15
+        scaleOrbits.planetScale    // Passa a referência para a Célula 4
+      );
+
+      // 2. Usa o gerador de linha do D3 para transformar os pontos em um atributo 'd' do path
+      // Usamos .curve(d3.curveCardinalClosed) para fechar a curva suavemente
+      return d3.line().curve(d3.curveCardinalClosed)(points);
     });
 
   // === Agrupamento das luas por planeta ===
@@ -560,7 +555,43 @@ auxiliaryOrbitalFunctions = {
 
 mutable currentAnimationTime = 0;
 
-// Célula 16: [Viewof Sistema Solar + Animação] ===============================================
+// Célula 16: [Gerar Pontos da Órbita] ========================================================
+
+function generateOrbitPathPoints(planetData, orbitalFunctions, scaleFunction) {
+  // Encontra os elementos orbitais estáticos para o planeta específico
+  const el = mutable staticOrbits.planets[planetData.name];
+  if (!el) return [];
+
+  const points = [];
+  const totalDays = el.period_days;
+  const numPoints = 360; // 1 ponto por grau
+
+  for (let i = 0; i < numPoints; i++) {
+    const timeInDays = (i / numPoints) * totalDays;
+
+    // Usa a função de Kepler da Célula 15 para obter X/Y em AU
+    const posAU = orbitalFunctions.orbitalElementsToXY(el, timeInDays);
+
+    // Converte de AU para KM
+    const AU_TO_KM = 149597870;
+    const x_km = posAU.x * AU_TO_KM;
+    const y_km = posAU.y * AU_TO_KM;
+
+    // Converte de KM para Pixels usando sua escala logarítmica da Célula 4
+    const rKM = Math.sqrt(x_km**2 + y_km**2);
+    const angleRad = Math.atan2(y_km, x_km);
+    
+    // Calcula a posição final em pixels para o SVG
+    const x_px = scaleFunction(rKM) * Math.cos(angleRad);
+    const y_px = scaleFunction(rKM) * Math.sin(angleRad);
+
+    points.push([x_px, y_px]);
+  }
+
+  return points;
+}
+
+// Célula 17: [Viewof Sistema Solar + Animação] ===============================================
 
 viewof solarSystem = {
 
@@ -715,7 +746,15 @@ viewof solarSystem = {
   const { statusIndicator } = makeLiveButton(svg, async () => { // <--- Captura o statusIndicator
     mutable isLiveMode = !mutable isLiveMode;
 
+    
+    // Adicione uma referência global para as órbitas (se ainda não tiver)
+    const orbitPaths = svg.selectAll("path.orbit-sun"); 
+
     if (mutable isLiveMode) {
+
+      // --- NOVO: Oculta as linhas de órbita estáticas ---
+      orbitPaths.style("display", "none");
+      
       statusIndicator.attr("fill", "yellow"); // <--- Amarelo: Carregando
       liveStatusText.text("Carregando..."); // <-- Mostra o carregando
 
@@ -744,6 +783,9 @@ viewof solarSystem = {
       }, 15000);
 
     } else {
+      // --- NOVO: Mostra as linhas de órbita no modo estático ---
+      orbitPaths.style("display", "block");
+      
       // Modo Simulação (desliga o LIVE)
       clearInterval(liveInterval);
       liveInterval = null;
@@ -761,6 +803,8 @@ viewof solarSystem = {
     .attr("text-anchor", "start")
     .style("font-size", "12px")
     .text(""); // Texto inicial vazio
+
+  const orbitPaths = svg.selectAll("path.orbit-sun");
 
   // === Criação do sistema solar ===
   // Passamos a função handleClick simplificada que apenas atualiza a mutable
@@ -993,15 +1037,15 @@ viewof solarSystem = {
   return container;
 }
 
-// Célula 16.1: [Estado de Seleção] ===========================================================
+// Célula 17.1: [Estado de Seleção] ===========================================================
 // Armazena o objeto selecionado (planeta, lua ou sol). Null se nada estiver selecionado.
 mutable selectedObject = null;
 
-// Célula 16.2: [Estado do painel lateral] ====================================================
+// Célula 17.2: [Estado do painel lateral] ====================================================
 // Controla a visibilidade do painel lateral.
 mutable isPanelOpen = false;
 
-// Célula 17: [Painel de Informações Lateral] =================================================
+// Célula 18: [Painel de Informações Lateral] =================================================
 
 makeInfoPanel = function(container, width, onCloseHandler) {
   
@@ -1044,15 +1088,15 @@ makeInfoPanel = function(container, width, onCloseHandler) {
   return infoPanel;
 }
 
-// Célula 18: [Estado global do modo LIVE] ====================================================
+// Célula 19: [Estado global do modo LIVE] ====================================================
 
-// Célula 18.1: [Modo de operação] ============================================================
+// Célula 19.1: [Modo de operação] ============================================================
 mutable isLiveMode = false;
 
-// Célula 18.2: [Cache local das posições LIVE] ===============================================
+// Célula 19.2: [Cache local das posições LIVE] ===============================================
 mutable livePositions = {};
 
-// Célula 19: [Fetch LIVE para TODOS os corpos] ===============================================
+// Célula 20: [Fetch LIVE para TODOS os corpos] ===============================================
 
 async function fetchAllLivePositions(setStatus = () => {}) {
 
@@ -1105,7 +1149,7 @@ async function fetchAllLivePositions(setStatus = () => {}) {
   return positions;
 }
 
-// Célula 20: [Botão LIVE] ===================================================================
+// Célula 21: [Botão LIVE] ===================================================================
 
 makeLiveButton = function(svg, onToggle){
   const g = svg.append("g")
