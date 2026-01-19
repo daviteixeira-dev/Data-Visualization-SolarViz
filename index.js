@@ -1,18 +1,18 @@
-// Célula 01: =================================================================================
+// Célula 01: [Importação do D3] ==============================================================
 
 d3 = require("d3@6")
 
 // Célula 02: [Planetas] ======================================================================
 
 planets = [
-  { name: "Mercúrio", color: "#b1b1b1", radius: 3, realRadius: 2439, orbit: 58e6, period: 88, mass: 0.330, img: "https://upload.wikimedia.org/wikipedia/commons/4/4a/Mercury_in_true_color.jpg", e: 0.2056, i: 7.00, p_arg: 252.25 },
-  { name: "Vênus", color: "#e0b55b", radius: 5, realRadius: 6051, orbit: 108e6, period: 225, mass: 4.87, img: "https://upload.wikimedia.org/wikipedia/commons/0/08/Venus_from_Mariner_10.jpg", e: 0.0068, i: 3.39, p_arg: 181.98 },
-  { name: "Terra", color: "#4fa3ff", radius: 5, realRadius: 6371, orbit: 150e6, period: 365, mass: 5.97, img: "https://upload.wikimedia.org/wikipedia/commons/9/97/The_Earth_seen_from_Apollo_17.jpg", e: 0.0167, i: 0.00, p_arg: 102.95 },
-  { name: "Marte", color: "#d14f2b", radius: 4, realRadius: 3389, orbit: 228e6, period: 687, mass: 0.642, img: "https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg", e: 0.0934, i: 1.85, p_arg: 336.04 },
-  { name: "Júpiter", color: "#c79c5e", radius: 10, realRadius: 69911, orbit: 778e6, period: 4333, mass: 1898, img: "https://upload.wikimedia.org/wikipedia/commons/2/2b/Jupiter_and_its_shrunken_Great_Red_Spot.jpg", e: 0.0484, i: 1.31, p_arg: 14.75 }, 
-  { name: "Saturno", color: "#e3d8a1", radius: 8, realRadius: 58232, orbit: 1427e6, period: 10759, mass: 568, img: "https://upload.wikimedia.org/wikipedia/commons/c/c7/Saturn_during_Equinox.jpg", e: 0.0542, i: 2.48, p_arg: 92.59 },
-  { name: "Urano", color: "#9be8ff", radius: 7, realRadius: 25362, orbit: 2871e6, period: 30687, mass: 86.8, img: "https://upload.wikimedia.org/wikipedia/commons/3/3d/Uranus2.jpg", e: 0.0472, i: 0.77, p_arg: 170.96 },
-  { name: "Netuno", color: "#4978ff", radius: 7, realRadius: 24622, orbit: 4495e6, period: 60190, mass: 102, img: "https://upload.wikimedia.org/wikipedia/commons/5/56/Neptune_Full.jpg", e: 0.0086, i: 1.77, p_arg: 44.97 }
+  { name: "Mercúrio", color: "#b1b1b1", radius: 3, realRadius: 2439, orbit: 58e6, a_AU: 0.387, period: 88, mass: 0.330, img: "https://upload.wikimedia.org/wikipedia/commons/4/4a/Mercury_in_true_color.jpg", e: 0.2056, i: 7.00, p_arg: 252.25 },
+  { name: "Vênus", color: "#e0b55b", radius: 5, realRadius: 6051, orbit: 108e6, a_AU: 0.723, period: 225, mass: 4.87, img: "https://upload.wikimedia.org/wikipedia/commons/0/08/Venus_from_Mariner_10.jpg", e: 0.0068, i: 3.39, p_arg: 181.98 },
+  { name: "Terra", color: "#4fa3ff", radius: 5, realRadius: 6371, orbit: 150e6, a_AU: 1.000, period: 365, mass: 5.97, img: "https://upload.wikimedia.org/wikipedia/commons/9/97/The_Earth_seen_from_Apollo_17.jpg", e: 0.0167, i: 0.00, p_arg: 102.95 },
+  { name: "Marte", color: "#d14f2b", radius: 4, realRadius: 3389, orbit: 228e6, a_AU: 1.524, period: 687, mass: 0.642, img: "https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg", e: 0.0934, i: 1.85, p_arg: 336.04 },
+  { name: "Júpiter", color: "#c79c5e", radius: 10, realRadius: 69911, orbit: 778e6, a_AU: 5.203, period: 4333, mass: 1898, img: "https://upload.wikimedia.org/wikipedia/commons/2/2b/Jupiter_and_its_shrunken_Great_Red_Spot.jpg", e: 0.0484, i: 1.31, p_arg: 14.75 }, 
+  { name: "Saturno", color: "#e3d8a1", radius: 8, realRadius: 58232, orbit: 1427e6, a_AU: 9.537, period: 10759, mass: 568, img: "https://upload.wikimedia.org/wikipedia/commons/c/c7/Saturn_during_Equinox.jpg", e: 0.0542, i: 2.48, p_arg: 92.59 },
+  { name: "Urano", color: "#9be8ff", radius: 7, realRadius: 25362, orbit: 2871e6, a_AU: 19.191, period: 30687, mass: 86.8, img: "https://upload.wikimedia.org/wikipedia/commons/3/3d/Uranus2.jpg", e: 0.0472, i: 0.77, p_arg: 170.96 },
+  { name: "Netuno", color: "#4978ff", radius: 7, realRadius: 24622, orbit: 4495e6, a_AU: 30.069, period: 60190, mass: 102, img: "https://upload.wikimedia.org/wikipedia/commons/5/56/Neptune_Full.jpg", e: 0.0086, i: 1.77, p_arg: 44.97 }
 ];
 
 // Célula 03: [Luas] ==========================================================================
@@ -258,7 +258,6 @@ makeSpeedMenu = function(container, svg) {
 }
 
 // Célula 11: [Encapsulamento do Sistema Solar] ===============================================
-
 makeSolarSystem = (svg, planets, moons, scaleOrbits, center, onClickHandler) => {
   // Toda a renderização do sistema solar é movida para dentro de um grupo centralizado, facilitando a gestão das coordenadas relativas.
   const systemGroup = svg.append("g")
@@ -591,9 +590,63 @@ function generateOrbitPathPoints(planetData, orbitalFunctions, scaleFunction) {
   return points;
 }
 
-// Célula 17: [Viewof Sistema Solar + Animação] ===============================================
+// Célula 17: [Tela de Planejamento da Missão] ================================================
 
+makeMissionUI = function(container) {
+  const missionDiv = html`<div style="
+    position: absolute; top: 10px; left: 10px; background: rgba(17, 17, 17, 0.95);
+    padding: 15px; border-radius: 8px; color: white; font-family: sans-serif;
+    border: 1px solid #333; z-index: 1000; width: 240px; box-shadow: 0 4px 20px rgba(0,0,0,0.8);
+  ">
+    <h3 style="margin: 0 0 10px 0; font-size: 11px; color: #00ffcc; letter-spacing: 1px; text-align:center;">🚀 PLANEJADOR DE MISSÃO</h3>
+    <div style="display: flex; flex-direction: column; gap: 10px;">
+      <select id="origin" style="background: #222; color: white; border: 1px solid #444; font-size: 11px;">
+        <option value="" disabled selected>Selecione a Origem</option>
+        ${planets.map(p => `<option value="${p.name}">${p.name}</option>`)}
+      </select>
+      <select id="target" style="background: #222; color: white; border: 1px solid #444; font-size: 11px;">
+        <option value="" disabled selected>Selecione o Destino</option>
+        ${planets.map(p => `<option value="${p.name}">${p.name}</option>`)}
+      </select>
+      <div style="display: flex; gap: 5px;">
+        <button id="btnConfirm" style="flex:2; background: #006644; color: white; border: none; padding: 5px; border-radius: 3px; cursor: pointer; font-size: 10px; font-weight: bold;">TRAÇAR ROTA</button>
+        <button id="btnReset" style="flex:1; background: #442222; color: white; border: none; padding: 5px; border-radius: 3px; cursor: pointer; font-size: 10px;">RESET</button>
+      </div>
+    </div>
+    <div id="missionStats" style="margin-top: 12px; padding-top: 10px; border-top: 1px solid #222; font-size: 11px; color: #aaa; display:none;">
+    </div>
+  </div>`;
+
+  // Lógica dos Botões
+  missionDiv.querySelector("#btnConfirm").onclick = () => {
+    const origin = missionDiv.querySelector("#origin").value;
+    const target = missionDiv.querySelector("#target").value;
+    if (origin && target && origin !== target) {
+      mutable mission = { origin, target };
+      missionDiv.querySelector("#missionStats").style.display = "block";
+    } else {
+      alert("Selecione planetas de origem e destino diferentes.");
+    }
+  };
+
+  missionDiv.querySelector("#btnReset").onclick = () => {
+    mutable mission = null;
+    missionDiv.querySelector("#origin").value = "";
+    missionDiv.querySelector("#target").value = "";
+    missionDiv.querySelector("#missionStats").style.display = "none";
+  };
+
+  container.appendChild(missionDiv);
+  return missionDiv;
+}
+
+// Célula 18: [Viewof Sistema Solar + Animação] ===============================================
 viewof solarSystem = {
+
+  transferData; // Força a célula a observar a rota.
+  
+  mutable livePositions;
+  mutable mission;
 
   // === Carrega dados STATIC uma vez ===
   if (!mutable staticOrbits) {
@@ -612,6 +665,9 @@ viewof solarSystem = {
   // === Container principal ===
   // Passamos a largura do painel para o container (350px)
   const { container, svg } = makeContainerCell(containerAndDimensions.width + 350, containerAndDimensions.height);
+
+  // INJEÇÃO DA UI DE MISSÃO
+  const missionUI = makeMissionUI(container);
 
   // === Fundo Estrelado ===
   makeStarfield(svg, containerAndDimensions.width, containerAndDimensions.height);
@@ -897,6 +953,16 @@ viewof solarSystem = {
   // Chama a função para criar o cinturão de asteroides
   const asteroidGroups = makeAsteroidBelt(systemGroup, asteroidBeltData);
 
+  // === Criação do elemento da Rota de Transferência
+  const routePath = systemGroup.append("path")
+    .attr("class", "hohmann-route")
+    .attr("fill", "none")
+    .attr("stroke", "#ff4444")
+    .attr("stroke-width", 2)
+    .attr("stroke-dasharray", "5,5")
+    .style("pointer-events", "none");
+    //.style("opacity", 0);
+
   // === Função auxiliar para converter distância radial para X/Y usando a escala LOG ===
   const calculateXY = (distanceKM, angleRad, scaleFunc) => {
       const scaledR = scaleFunc(distanceKM);
@@ -904,6 +970,23 @@ viewof solarSystem = {
           x: scaledR * Math.cos(angleRad),
           y: scaledR * Math.sin(angleRad)
       };
+  };
+
+  // === Função auxiliar para pegar a posição atual de qualquer planeta no tempo 'time' ===
+  const getPos = (planetName, time) => {
+    const AU_TO_KM = 149597870;
+    if (mutable isLiveMode && mutable livePositions?.[planetName]) {
+      return projectLivePosition(mutable livePositions[planetName]);
+    } else if (mutable staticOrbits?.planets?.[planetName]) {
+      const el = mutable staticOrbits.planets[planetName];
+      const posAU = auxiliaryOrbitalFunctions.orbitalElementsToXY(el, time / 100);
+      const rKM = Math.sqrt((posAU.x * AU_TO_KM)**2 + (posAU.y * AU_TO_KM)**2);
+      const angleRad = Math.atan2(posAU.y, posAU.x);
+      return calculateXY(rKM, angleRad, scaleOrbits.planetScale);
+    } else {
+      const p = planets.find(x => x.name === planetName);
+      return getObjectPosition(p, time);
+    }
   };
 
   // Função de atualização da posição dos elementos (chamada inicial e no timer)
@@ -915,7 +998,8 @@ viewof solarSystem = {
     const selection = planetGroups;
 
     // 2. Aplique a transição SE estiver no modo LIVE, senão atualize instantaneamente (simulação padrão)
-    const transitionSelection = mutable isLiveMode ? selection.transition().duration(1000) : selection;
+    //const transitionSelection = mutable isLiveMode ? selection.transition().duration(1000) : selection;
+    const transitionSelection = selection;
 
     // 3. Aplique a transformação (mesma lógica de cálculo de x, y)
     transitionSelection.attr("transform", d => {
@@ -924,51 +1008,51 @@ viewof solarSystem = {
 
       // === 1. LIVE (backend) ===
       if(mutable isLiveMode && mutable livePositions?.[d.name]){
-
+  
         const posKM = mutable livePositions[d.name]; // Posição X/Y em KM
-
+  
         const rKM = Math.sqrt(posKM.x * posKM.x + posKM.y * posKM.y);
-
+  
         const angleRad = Math.atan2(posKM.y, posKM.x);
-        
+          
         const pos = calculateXY(rKM, angleRad, scaleOrbits.planetScale);
         x = pos.x;
         y = pos.y;
-
+  
       // === 2. STATIC (GitHub JSON) === 
       } else if(mutable staticOrbits && mutable staticOrbits.planets?.[d.name]){
-
+  
         // Acessa o objeto do planeta usando a chave correta
         const el = mutable staticOrbits.planets[d.name];
-        
+          
         // Calcula posição orbital em AU (Unidades Astronômicas)
         const posAU = auxiliaryOrbitalFunctions.orbitalElementsToXY(
           el,
           mutable currentAnimationTime / 100 // Ajuste o divisor para a velocidade da simulação
         );
-    
+      
         // CONVERTE DE AU PARA KM (1 AU = ~149.6 milhões de KM)
         const AU_TO_KM = 149597870;
         const x_km = posAU.x * AU_TO_KM;
         const y_km = posAU.y * AU_TO_KM;
-
+  
         const rKM = Math.sqrt(x_km * x_km + y_km * y_km);
         const angleRad = Math.atan2(y_km, x_km);
-        
+          
         const pos = calculateXY(rKM, angleRad, scaleOrbits.planetScale);
         x = pos.x;
         y = pos.y;
-
+  
       // === 3. Fallback matemático (se o LIVE falhar) ===
       }else{
         const angleRad = (mutable currentAnimationTime / (d.period * 100)) * 2 * Math.PI;
         const orbitRadiusKM = d.orbit; // Valor em KM do array original
-        
+          
         const pos = calculateXY(orbitRadiusKM, angleRad, scaleOrbits.planetScale);
         x = pos.x;
         y = pos.y;
       }
-
+  
       return `translate(${x}, ${y})`;
       
     });
@@ -1028,7 +1112,84 @@ viewof solarSystem = {
       const y = scaledR * Math.sin(angleRad);
       return `translate(${x}, ${y})`;
     });
-  }
+
+
+    // === LÓGICA DA ROTA DE TRANSFERÊNCIA (HOHMANN) ===
+
+    //const currentTransfer = transferData;
+
+    const currentTransfer = transferData;
+    
+    // Verifica se transferData existe e se contém os planetas antes de prosseguir
+    if (currentTransfer && currentTransfer.p1 && currentTransfer.p2) {
+      const { p1, p2, aTrans, e, phaseAngle, r1, r2, transferTime  } = currentTransfer;
+      const AU_TO_KM = 149597870;
+      
+      // Obter posições atuais usando a função getPos (agora definida acima)
+      const pos1 = getPos(p1.name, time);
+      const pos2 = getPos(p2.name, time);
+  
+      // 1. Calcular ângulo de fase ATUAL
+      const angle1Rad = Math.atan2(pos1.y, pos1.x);
+      const angle2Rad = Math.atan2(pos2.y, pos2.x);
+      
+      // Ângulo de fase atual considerando o sentido anti-horário do sistema solar
+      let currentPhase = ((angle2Rad - angle1Rad) * (180 / Math.PI) + 360) % 360;
+  
+      // 2. Verificar Janela (Tolerância 2 graus)
+      // Se estivermos indo para dentro, o alvo deve estar "atrás" na órbita
+      // A tolerância de 5 graus é boa para a simulação
+      const isWindowOpen = Math.abs(currentPhase - phaseAngle) < 5 || Math.abs(currentPhase - phaseAngle) > 355; 
+      
+      routePath.style("display", "block");
+      routePath.attr("stroke", isWindowOpen ? "#00ff88" : "#ff4444")
+               .attr("opacity", isWindowOpen ? 1 : 0.4);
+        
+      const direction = r1 > r2 ? -1 : 1;
+
+      const rotation = Math.atan2(pos1.y, pos1.x);
+  
+      // 3. Gere os pontos com a correção de direção (Interno vs Externo)
+      const points = d3.range(0, Math.PI + 0.1, 0.1).map(theta => {
+        
+        const angleAdjustment = r1 > r2 ? Math.PI : 0;
+        const r_km = (aTrans * (1 - e * e)) / (1 + e * Math.cos(theta + angleAdjustment)) * AU_TO_KM;
+        //const r_km = (aTrans * (1 - e * e)) / (1 + e * Math.cos(theta)) * AU_TO_KM;
+        
+        const scaledR = scaleOrbits.planetScale(r_km);
+
+        return [scaledR * Math.cos(direction * theta + rotation), scaledR * Math.sin(direction * theta + rotation)];
+      });
+  
+      routePath.attr("d", d3.line()(points));
+
+      // 4. ATUALIZAÇÃO DA INTERFACE (HUD)
+      const statsDiv = document.querySelector("#missionStats");
+      if (statsDiv) {
+        statsDiv.style.display = "block";
+        statsDiv.innerHTML = `
+          <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+            <span>Voo estimado:</span> <span style="color:white">${Math.round(transferTime)} dias</span>
+          </div>
+          <div style="display: flex; justify-content: space-between; margin-bottom: 5px;">
+            <span>Distância:</span> <span style="color:white">${(aTrans * 149.6).toFixed(1)}M km</span>
+          </div>
+          <div style="display: flex; justify-content: space-between;">
+            <span>Janela:</span> 
+            <span style="color: ${isWindowOpen ? "#00ff88" : "#ff4444"}; font-weight: bold;">
+              ${isWindowOpen ? "ABERTA" : "AGUARDANDO"}
+            </span>
+          </div>
+        `;
+      }
+    } else {
+      // Se não houver missão, esconda a rota
+      if (routePath) routePath.style("display", "none");
+      const statsDiv = document.querySelector("#missionStats");
+      if (statsDiv) statsDiv.style.display = "none";
+    }
+
+  };
 
   // Aplica as posições iniciais imediatamente após a criação dos elementos
   updatePositions(mutable currentAnimationTime);
@@ -1047,9 +1208,11 @@ viewof solarSystem = {
     if(!mutable selectedObject && mutable isRunning){
       // Atualiza tempo interno da simulação baseado na velocidade
       mutable currentAnimationTime += deltaTime * mutable speed;
-      // Chamamos a função de atualização de posições
-      updatePositions(mutable currentAnimationTime);
     }
+
+    // Chamamos a função de atualização de posições
+    updatePositions(mutable currentAnimationTime);
+    
     // Se estiver pausado, o loop simplesmente não faz nada dentro do 'if', 
     // e o accumulatedPauseTime é ajustado no próximo clique em "Play".
   });
@@ -1062,15 +1225,15 @@ viewof solarSystem = {
   return container;
 }
 
-// Célula 17.1: [Estado de Seleção] ===========================================================
+// Célula 18.1: [Estado de Seleção] ===========================================================
 // Armazena o objeto selecionado (planeta, lua ou sol). Null se nada estiver selecionado.
 mutable selectedObject = null;
 
-// Célula 17.2: [Estado do painel lateral] ====================================================
+// Célula 18.2: [Estado do painel lateral] ====================================================
 // Controla a visibilidade do painel lateral.
 mutable isPanelOpen = false;
 
-// Célula 18: [Painel de Informações Lateral] =================================================
+// Célula 19: [Painel de Informações Lateral] =================================================
 
 makeInfoPanel = function(container, width, onCloseHandler) {
   
@@ -1120,15 +1283,15 @@ makeInfoPanel = function(container, width, onCloseHandler) {
   return infoPanel;
 }
 
-// Célula 19: [Estado global do modo LIVE] ====================================================
+// Célula 20: [Estado global do modo LIVE] ====================================================
 
-// Célula 19.1: [Modo de operação] ============================================================
+// Célula 20.1: [Modo de operação] ============================================================
 mutable isLiveMode = false;
 
-// Célula 19.2: [Cache local das posições LIVE] ===============================================
+// Célula 20.2: [Cache local das posições LIVE] ===============================================
 mutable livePositions = {};
 
-// Célula 20: [Fetch LIVE para TODOS os corpos] ===============================================
+// Célula 21: [Fetch LIVE para TODOS os corpos] ===============================================
 
 async function fetchAllLivePositions(setStatus = () => {}) {
 
@@ -1181,7 +1344,7 @@ async function fetchAllLivePositions(setStatus = () => {}) {
   return positions;
 }
 
-// Célula 21: [Botão LIVE] ====================================================================
+// Célula 22: [Botão LIVE] ====================================================================
 
 makeLiveButton = function(svg, onToggle){
   const g = svg.append("g")
@@ -1215,33 +1378,40 @@ makeLiveButton = function(svg, onToggle){
   return { g, text, statusIndicator };
 };
 
-// Célula 22: [Dashboard Analítico] ===========================================================
+// Célula 23: [Dashboard Analítico] ===========================================================
 
-// Célula 22.1: [Gráfico de bolhas comparativo] ===============================================
+// Célula 23.1: [Gráfico de bolhas comparativo] ===============================================
 
 createComparisonBubbleChart = (focusPlanetName, containerWidth) => {
   // 1. Configurações de Dimensão Adaptáveis
   const width = containerWidth || 400;
   const height = 220; // Aumentado um pouco para caber as labels
-  const margin = { top: 40, right: 30, bottom: 40, left: 30 };
+  const margin = { top: 50, right: 30, bottom: 40, left: 30 };
 
-  // 2. Escalas usando seus dados unificados
+  // 2. Cálculo da área útil vertical
+  const chartHeight = height - margin.top - margin.bottom;
+
+  // 3. Escalas usando seus dados unificados
   const maxRadius = d3.max(planets, d => d.realRadius);
+
+  // 4. Escala de Tamanho Rigorosa
+  // O raio máximo será metade da altura útil para garantir que o 
+  // diâmetro (2 * raio) nunca ultrapasse o topo do SVG.
   const sizeScale = d3.scaleLinear()
     .domain([0, maxRadius])
-    .range([2, (height - margin.top - margin.bottom) / 1.2]);
+    .range([3, chartHeight / 2]);
 
   const xScale = d3.scalePoint()
     .domain(planets.map(d => d.name))
     .range([margin.left, width - margin.right])
-    .padding(0.5);
+    .padding(0.6);
 
   const svg = d3.create("svg")
     .attr("viewBox", [0, 0, width, height])
     .style("overflow", "visible")
     .style("display", "block");
 
-  // 3. Linha de base (Estilo do colega)
+  // 5. Linha de base (Estilo do colega)
   svg.append("line")
     .attr("x1", margin.left - 10)
     .attr("x2", width - margin.right + 10)
@@ -1250,38 +1420,40 @@ createComparisonBubbleChart = (focusPlanetName, containerWidth) => {
     .attr("stroke", "#333")
     .attr("stroke-width", 1);
 
-  // 4. Grupos Visuais
+  // 6. Grupos Visuais
   const planetGroups = svg.selectAll("g.planet-visual")
     .data(planets)
     .join("g")
     .attr("class", "planet-visual")
     .attr("transform", d => `translate(${xScale(d.name)}, ${height - margin.bottom})`);
 
-  // 5. Círculos com estilo de destaque
+  // 7. Círculos com estilo de destaque
   planetGroups.append("circle")
     .attr("class", "planet-circle")
     .attr("r", d => sizeScale(d.realRadius))
-    .attr("cy", d => -sizeScale(d.realRadius))
+    .attr("cy", d => -sizeScale(d.realRadius)) // Move o centro para cima conforme o raio aumenta
     .attr("fill", d => d.name === focusPlanetName ? d.color : "#444")
     .attr("fill-opacity", d => d.name === focusPlanetName ? 0.85 : 0.4)
     .attr("stroke", d => d.name === focusPlanetName ? "white" : "#666")
-    .attr("stroke-width", d => d.name === focusPlanetName ? 2 : 1);
+    .attr("stroke-width", d => d.name === focusPlanetName ? 2 : 1)
+    .style("transition", "all 0.2s ease"); // Transição suave para o hover
 
-  // 6. Labels (Nomes)
+  // 8. Labels (Nomes)
   planetGroups.append("text")
-    .attr("y", 20)
+    .attr("y", 25)
     .attr("text-anchor", "middle")
-    .attr("fill", d => d.name === focusPlanetName ? "white" : "#666")
-    .style("font-size", "10px")
-    .style("font-weight", d => d.name === focusPlanetName ? "bold" : "normal")
-    .text(d => d.name);
+    .attr("fill", d => d.name === focusPlanetName ? "white" : "#888")
+    .style("font-size", "11px")
+    .style("font-family", "sans-serif")
+    .style("font-weight", d => d.name === focusPlanetName ? "600" : "400")
+    .text(d => d.name.substring(0, 3).toUpperCase());
 
-  // 7. Tooltip (Injetado no body para sobrepor o painel)
+  // 9. Tooltip (Injetado no body para sobrepor o painel)
   const tooltip = d3.select("body").selectAll(".bubble-tooltip").data([null]).join("div")
     .attr("class", "bubble-tooltip")
     .style("position", "absolute")
     .style("visibility", "hidden")
-    .style("background", "rgba(0,0,0,0.95)")
+    .style("background", "rgba(15,15,15,0.95)")
     .style("color", "white")
     .style("padding", "8px 12px")
     .style("border", "1px solid #444")
@@ -1291,7 +1463,7 @@ createComparisonBubbleChart = (focusPlanetName, containerWidth) => {
     .style("z-index", "3000")
     .style("box-shadow", "0 4px 10px rgba(0,0,0,0.5)");
 
-  // 8. Camada de Interação (Zonas de Captura)
+  // 9. Camada de Interação (Zonas de Captura)
   const step = (width - margin.left - margin.right) / (planets.length - 1 || 1);
 
   svg.append("g")
@@ -1339,7 +1511,7 @@ createComparisonBubbleChart = (focusPlanetName, containerWidth) => {
   return svg.node();
 }
 
-// Célula 22.2: [Gráfico de massa] ============================================================
+// Célula 23.2: [Gráfico de massa] ============================================================
 
 createMassChart = (focusPlanetName, containerWidth) => {
   // 1. Configurações de Dimensão Adaptáveis
@@ -1446,7 +1618,7 @@ createMassChart = (focusPlanetName, containerWidth) => {
   return svg.node();
 }
 
-// Célula 22.3: [Gráfico de linha orbital] ====================================================
+// Célula 23.3: [Gráfico de linha orbital] ====================================================
 
 createOrbitLineChart = (focusPlanetName, containerWidth) => {
   // 1. Configurações de Dimensão Adaptáveis
@@ -1591,7 +1763,7 @@ createOrbitLineChart = (focusPlanetName, containerWidth) => {
   return svg.node();
 }
 
-// Célula 22.4: [Gráfico de barras horizontais] ===============================================
+// Célula 23.4: [Gráfico de barras horizontais] ===============================================
 
 createHorizontalBarChart = (focusPlanetName, containerWidth) => {
   // 1. Configurações de Dimensão Adaptáveis
@@ -1699,4 +1871,71 @@ createHorizontalBarChart = (focusPlanetName, containerWidth) => {
     });
 
   return svg.node();
+}
+
+// Célula 25: [Mission Planner] ===============================================================
+
+// Célula 25.1: [Física Orbital] ==============================================================
+
+orbitalPhysics = {
+  const muSun = 0.000295912208; // AU³/dia²
+
+  function calculateHohmann(r1, r2) {
+    const aTrans = (r1 + r2) / 2;
+    const v1 = Math.sqrt(muSun / r1);
+    const v2 = Math.sqrt(muSun / r2);
+    const vTrans1 = Math.sqrt(muSun * (2 / r1 - 1 / aTrans));
+    const vTrans2 = Math.sqrt(muSun * (2 / r2 - 1 / aTrans));
+    
+    const deltaV1 = Math.abs(vTrans1 - v1);
+    const deltaV2 = Math.abs(v2 - vTrans2);
+    const transferTime = Math.PI * Math.sqrt(Math.pow(aTrans, 3) / muSun);
+    const omega2 = Math.sqrt(muSun / Math.pow(r2, 3));
+    const phaseAngle = (180 - omega2 * transferTime * (180 / Math.PI)) % 360;
+
+    return { deltaV1, deltaV2, transferTime, phaseAngle, aTrans, e: Math.abs(r1 - r2) / (r1 + r2) };
+  }
+
+  function getLaunchWindow(currentAngle, idealAngle, r1, r2) {
+    const n1 = Math.sqrt(muSun / Math.pow(r1, 3));
+    const n2 = Math.sqrt(muSun / Math.pow(r2, 3));
+    const relativeVelocity = Math.abs(n1 - n2);
+    let diffRad = (idealAngle - currentAngle) * (Math.PI / 180);
+    while (diffRad < 0) diffRad += 2 * Math.PI;
+    return diffRad / relativeVelocity; // Retorna dias
+  }
+
+  return { calculateHohmann, getLaunchWindow };
+}
+
+// Célula 25.2: [Estado da Missão] ============================================================
+
+mutable mission = null;
+
+// Célula 25.3: [Lógica da Rota de Transferência] =============================================
+
+transferData = {
+  if (!mission) return null;
+
+  const p1 = planets.find(p => p.name === mission.origin);
+  const p2 = planets.find(p => p.name === mission.target);
+  
+  if (!p1 || !p2) return null;
+
+  const r1 = p1.a_AU;
+  const r2 = p2.a_AU;
+  const aTrans = (r1 + r2) / 2;
+  const e = Math.abs(r1 - r2) / (r1 + r2);
+
+  // Cálculo robusto do ângulo de fase ideal
+  // Para planetas externos: 180 * (1 - (aTrans/r2)^1.5)
+  // Para planetas internos: 180 * (1 + (aTrans/r2)^1.5) -> ou similar
+  const phaseAngle = (180 * (1 - Math.pow(aTrans / r2, 1.5))) % 360;
+
+  // IMPORTANTE: Inverter o sinal do ângulo se estiver voltando (r1 > r2)
+  const correctedPhaseAngle = r1 < r2 ? (phaseAngle + 360) % 360 : (360 - phaseAngle);
+
+  const transferTime = 365.25 * 0.5 * Math.pow(aTrans, 1.5);
+
+  return { p1, p2, aTrans, e, phaseAngle: correctedPhaseAngle, r1, r2, transferTime };
 }
