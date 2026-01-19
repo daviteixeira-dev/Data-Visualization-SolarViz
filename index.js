@@ -5,14 +5,14 @@ d3 = require("d3@6")
 // Célula 02: [Planetas] ======================================================================
 
 planets = [
-  { name: "Mercúrio", color: "#b1b1b1", radius: 3, orbit: 58e6, period: 88, e: 0.2056, i: 7.00, p_arg: 252.25 },
-  { name: "Vênus", color: "#e0b55b", radius: 5, orbit: 108e6, period: 225, e: 0.0068, i: 3.39, p_arg: 181.98 },
-  { name: "Terra", color: "#4fa3ff", radius: 5, orbit: 150e6, period: 365, e: 0.0167, i: 0.00, p_arg: 102.95 },
-  { name: "Marte", color: "#d14f2b", radius: 4, orbit: 228e6, period: 687, e: 0.0934, i: 1.85, p_arg: 336.04 },
-  { name: "Júpiter", color: "#c79c5e", radius: 10, orbit: 778e6, period: 4333, e: 0.0484, i: 1.31, p_arg: 14.75 },
-  { name: "Saturno", color: "#e3d8a1", radius: 8, orbit: 1427e6, period: 10759, e: 0.0542, i: 2.48, p_arg: 92.59 },
-  { name: "Urano", color: "#9be8ff", radius: 7, orbit: 2871e6, period: 30687, e: 0.0472, i: 0.77, p_arg: 170.96 },
-  { name: "Netuno", color: "#4978ff", radius: 7, orbit: 4495e6, period: 60190, e: 0.0086, i: 1.77, p_arg: 44.97 }
+  { name: "Mercúrio", color: "#b1b1b1", radius: 3, realRadius: 2439, orbit: 58e6, period: 88, mass: 0.330, img: "https://upload.wikimedia.org/wikipedia/commons/4/4a/Mercury_in_true_color.jpg", e: 0.2056, i: 7.00, p_arg: 252.25 },
+  { name: "Vênus", color: "#e0b55b", radius: 5, realRadius: 6051, orbit: 108e6, period: 225, mass: 4.87, img: "https://upload.wikimedia.org/wikipedia/commons/0/08/Venus_from_Mariner_10.jpg", e: 0.0068, i: 3.39, p_arg: 181.98 },
+  { name: "Terra", color: "#4fa3ff", radius: 5, realRadius: 6371, orbit: 150e6, period: 365, mass: 5.97, img: "https://upload.wikimedia.org/wikipedia/commons/9/97/The_Earth_seen_from_Apollo_17.jpg", e: 0.0167, i: 0.00, p_arg: 102.95 },
+  { name: "Marte", color: "#d14f2b", radius: 4, realRadius: 3389, orbit: 228e6, period: 687, mass: 0.642, img: "https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg", e: 0.0934, i: 1.85, p_arg: 336.04 },
+  { name: "Júpiter", color: "#c79c5e", radius: 10, realRadius: 69911, orbit: 778e6, period: 4333, mass: 1898, img: "https://upload.wikimedia.org/wikipedia/commons/2/2b/Jupiter_and_its_shrunken_Great_Red_Spot.jpg", e: 0.0484, i: 1.31, p_arg: 14.75 }, 
+  { name: "Saturno", color: "#e3d8a1", radius: 8, realRadius: 58232, orbit: 1427e6, period: 10759, mass: 568, img: "https://upload.wikimedia.org/wikipedia/commons/c/c7/Saturn_during_Equinox.jpg", e: 0.0542, i: 2.48, p_arg: 92.59 },
+  { name: "Urano", color: "#9be8ff", radius: 7, realRadius: 25362, orbit: 2871e6, period: 30687, mass: 86.8, img: "https://upload.wikimedia.org/wikipedia/commons/3/3d/Uranus2.jpg", e: 0.0472, i: 0.77, p_arg: 170.96 },
+  { name: "Netuno", color: "#4978ff", radius: 7, realRadius: 24622, orbit: 4495e6, period: 60190, mass: 102, img: "https://upload.wikimedia.org/wikipedia/commons/5/56/Neptune_Full.jpg", e: 0.0086, i: 1.77, p_arg: 44.97 }
 ];
 
 // Célula 03: [Luas] ==========================================================================
@@ -665,23 +665,48 @@ viewof solarSystem = {
       return;
     }
 
-    infoPanel.querySelector("#objectName").textContent = obj.name;
+    // 1. Busca dados técnicos do array do colega
+    const pData = planets.find(p => p.name === obj.name);
 
-    // === LÓGICA ATUALIZADA PARA O TIPO DE OBJETO ===
-    let objectTypeDisplay = 'Desconhecido';
-    if (obj.type === 'Sol') {
-      objectTypeDisplay = 'Estrela';
-    } else if (obj.type === 'planet') {
-      objectTypeDisplay = 'Planeta';
-    } else if (obj.type === 'moon') {
-      objectTypeDisplay = 'Lua';
-    }
-    infoPanel.querySelector("#objectType").textContent = objectTypeDisplay;
+    // 2. Preenchimento de Cabeçalho
+    infoPanel.querySelector("#objectName").textContent = obj.name;
+    infoPanel.querySelector("#objectType").textContent = obj.type === 'planet' ? 'PLANETA' : (obj.type === 'Sol' ? 'ESTRELA' : 'LUA');
     
-    // Adicione mais detalhes ou gráficos aqui futuramente
-    infoPanel.querySelector("#objectRadius").textContent = obj.radius;
-    infoPanel.querySelector("#objectPeriod").textContent = obj.period;
-    infoPanel.querySelector("#objectOrbit").textContent = obj.orbit === 0 ? 'N/A' : obj.orbit;
+    if (pData) {
+      infoPanel.querySelector("#planetImg").src = pData.img;
+      infoPanel.querySelector("#objectRadius").innerHTML = `${pData.realRadius.toLocaleString()} <small style="color:#555">km</small>`;
+      infoPanel.querySelector("#objectPeriod").innerHTML = `${pData.period.toLocaleString()} <small style="color:#555">dias</small>`;
+      infoPanel.querySelector("#objectOrbit").innerHTML = `${(pData.orbit / 1e6).toFixed(1)} <small style="color:#555">mi km</small>`;
+    }
+
+    // 3. Renderização dos 4 Gráficos
+    const area = infoPanel.querySelector("#chartArea");
+    area.innerHTML = ""; // Limpa os gráficos do planeta anterior
+    //area.style.display = "grid";
+    //area.style.gridTemplateColumns = "1fr 1fr"; // Cria as duas colunas
+    //area.style.gap = "20px";
+  
+    if (obj.type === 'planet') {
+      const sections = [
+        { title: "Comparaçao de Raio (Escala Real)", fn: createComparisonBubbleChart },
+        { title: "Distribuição de Massa (Log)", fn: createMassChart },
+        { title: "Mapeamento de Distância", fn: createOrbitLineChart },
+        { title: "Duração do Ano (Translação)", fn: createHorizontalBarChart }
+      ];
+  
+      sections.forEach(s => {
+        const card = document.createElement("div");
+        card.style.cssText = "background: #111; padding: 15px; border-radius: 8px; border: 1px solid #222;";
+        card.innerHTML = `<h4 style="margin:0 0 15px 0; font-size:11px; color:#555; text-transform:uppercase; letter-spacing:1px;">${s.title}</h4>`;
+        
+        // Passamos o nome do planeta e a largura do painel (ajustada para as margens)
+        const chartElement = s.fn(obj.name, 370);
+        card.appendChild(chartElement);
+        area.appendChild(card);
+      });
+    } else {
+      area.innerHTML = `<div style="text-align:center; color:#444; margin-top:50px;">Gráficos detalhados disponíveis apenas para planetas.</div>`;
+    }
     
     infoPanel.style.display = "block";
   };
@@ -1053,30 +1078,37 @@ makeInfoPanel = function(container, width, onCloseHandler) {
   infoPanel.style.position = "absolute";
   infoPanel.style.top = "10px";
   infoPanel.style.right = "0px";
-  infoPanel.style.height = "90%";
-  infoPanel.style.width = "350px"; // Larga o suficiente para gráficos e informações
+  infoPanel.style.height = "95%";
+  infoPanel.style.width = "420px"; // Larga o suficiente para gráficos e informações
   infoPanel.style.background = "#1a1a1a";
   infoPanel.style.padding = "20px";
   infoPanel.style.color = "white";
   infoPanel.style.boxShadow = "-4px 0 8px rgba(0,0,0,0.5)";
   infoPanel.style.display = "none"; // Oculto por padrão
   infoPanel.style.overflowY = "auto";
+   infoPanel.style.zIndex = "1000";
   infoPanel.style.transition = "right 0.5s ease-in-out"; // Transição suave
 
   // Estrutura interna inicial (será preenchida dinamicamente)
   infoPanel.innerHTML = `
-    <button id="closePanelBtn" style="float: right; background: #555; border: none; color: white; cursor: pointer; padding: 5px 10px;">✕ Fechar</button>
-    <h2 id="objectName">Nome do Objeto</h2>
-    <hr style="border-color:#555;">
-    <div id="objectDetails">
-      <!-- Detalhes e gráficos virão aqui -->
-      <p><strong>Tipo:</strong> <span id="objectType"></span></p>
-      <p><strong>Raio:</strong> <span id="objectRadius"></span> km</p>
-      <p><strong>Período Orbital:</strong> <span id="objectPeriod"></span> dias</p>
-      <p><strong>Distância do Sol:</strong> <span id="objectOrbit"></span> km</p>
+    <button id="closePanelBtn" style="float: right; background: #222; border: 1px solid #444; color: white; cursor: pointer; padding: 8px 15px; border-radius: 4px; font-size:12px;">✕ FECHAR</button>
+    
+    <div style="display: flex; align-items: center; gap: 20px; margin-bottom: 25px;">
+      <img id="planetImg" src="" style="width: 90px; height: 90px; border-radius: 50%; border: 3px solid #333; object-fit: cover; box-shadow: 0 0 15px rgba(255,255,255,0.1);">
+      <div>
+        <h2 id="objectName" style="margin:0; font-size: 28px; letter-spacing: 1px; text-transform: uppercase;">---</h2>
+        <span id="objectType" style="color: #666; font-size: 14px; font-weight: bold; letter-spacing: 1px;">---</span>
+      </div>
     </div>
-    <div id="chartArea" style="margin-top: 20px;">
-        <!-- Área para gráficos D3 futuros -->
+
+    <div id="objectDetails" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; background: #161616; padding: 20px; border-radius: 12px; border: 1px solid #222; margin-bottom: 30px;">
+      <div><strong style="color:#555; font-size: 10px; display:block; margin-bottom:4px;">RAIO EQUATORIAL</strong> <div id="objectRadius" style="font-size:16px;"></div></div>
+      <div><strong style="color:#555; font-size: 10px; display:block; margin-bottom:4px;">PERÍODO ORBITAL</strong> <div id="objectPeriod" style="font-size:16px;"></div></div>
+      <div style="grid-column: span 2; border-top: 1px solid #222; pt: 10px;"><strong style="color:#555; font-size: 10px; display:block; margin-top:10px; margin-bottom:4px;">DISTÂNCIA DO SOL</strong> <div id="objectOrbit" style="font-size:16px;"></div></div>
+    </div>
+
+    <div id="chartArea" style="display: flex; flex-direction: column; gap: 25px;">
+        <!-- Gráficos entrarão aqui -->
     </div>
   `;
 
@@ -1149,7 +1181,7 @@ async function fetchAllLivePositions(setStatus = () => {}) {
   return positions;
 }
 
-// Célula 21: [Botão LIVE] ===================================================================
+// Célula 21: [Botão LIVE] ====================================================================
 
 makeLiveButton = function(svg, onToggle){
   const g = svg.append("g")
@@ -1182,3 +1214,489 @@ makeLiveButton = function(svg, onToggle){
   // Retornamos a referência ao indicador para uso externo
   return { g, text, statusIndicator };
 };
+
+// Célula 22: [Dashboard Analítico] ===========================================================
+
+// Célula 22.1: [Gráfico de bolhas comparativo] ===============================================
+
+createComparisonBubbleChart = (focusPlanetName, containerWidth) => {
+  // 1. Configurações de Dimensão Adaptáveis
+  const width = containerWidth || 400;
+  const height = 220; // Aumentado um pouco para caber as labels
+  const margin = { top: 40, right: 30, bottom: 40, left: 30 };
+
+  // 2. Escalas usando seus dados unificados
+  const maxRadius = d3.max(planets, d => d.realRadius);
+  const sizeScale = d3.scaleLinear()
+    .domain([0, maxRadius])
+    .range([2, (height - margin.top - margin.bottom) / 1.2]);
+
+  const xScale = d3.scalePoint()
+    .domain(planets.map(d => d.name))
+    .range([margin.left, width - margin.right])
+    .padding(0.5);
+
+  const svg = d3.create("svg")
+    .attr("viewBox", [0, 0, width, height])
+    .style("overflow", "visible")
+    .style("display", "block");
+
+  // 3. Linha de base (Estilo do colega)
+  svg.append("line")
+    .attr("x1", margin.left - 10)
+    .attr("x2", width - margin.right + 10)
+    .attr("y1", height - margin.bottom)
+    .attr("y2", height - margin.bottom)
+    .attr("stroke", "#333")
+    .attr("stroke-width", 1);
+
+  // 4. Grupos Visuais
+  const planetGroups = svg.selectAll("g.planet-visual")
+    .data(planets)
+    .join("g")
+    .attr("class", "planet-visual")
+    .attr("transform", d => `translate(${xScale(d.name)}, ${height - margin.bottom})`);
+
+  // 5. Círculos com estilo de destaque
+  planetGroups.append("circle")
+    .attr("class", "planet-circle")
+    .attr("r", d => sizeScale(d.realRadius))
+    .attr("cy", d => -sizeScale(d.realRadius))
+    .attr("fill", d => d.name === focusPlanetName ? d.color : "#444")
+    .attr("fill-opacity", d => d.name === focusPlanetName ? 0.85 : 0.4)
+    .attr("stroke", d => d.name === focusPlanetName ? "white" : "#666")
+    .attr("stroke-width", d => d.name === focusPlanetName ? 2 : 1);
+
+  // 6. Labels (Nomes)
+  planetGroups.append("text")
+    .attr("y", 20)
+    .attr("text-anchor", "middle")
+    .attr("fill", d => d.name === focusPlanetName ? "white" : "#666")
+    .style("font-size", "10px")
+    .style("font-weight", d => d.name === focusPlanetName ? "bold" : "normal")
+    .text(d => d.name);
+
+  // 7. Tooltip (Injetado no body para sobrepor o painel)
+  const tooltip = d3.select("body").selectAll(".bubble-tooltip").data([null]).join("div")
+    .attr("class", "bubble-tooltip")
+    .style("position", "absolute")
+    .style("visibility", "hidden")
+    .style("background", "rgba(0,0,0,0.95)")
+    .style("color", "white")
+    .style("padding", "8px 12px")
+    .style("border", "1px solid #444")
+    .style("border-radius", "4px")
+    .style("font-size", "12px")
+    .style("pointer-events", "none")
+    .style("z-index", "3000")
+    .style("box-shadow", "0 4px 10px rgba(0,0,0,0.5)");
+
+  // 8. Camada de Interação (Zonas de Captura)
+  const step = (width - margin.left - margin.right) / (planets.length - 1 || 1);
+
+  svg.append("g")
+    .selectAll("rect")
+    .data(planets)
+    .join("rect")
+    .attr("x", d => xScale(d.name) - step / 2)
+    .attr("y", 0)
+    .attr("width", step)
+    .attr("height", height)
+    .attr("fill", "transparent")
+    .style("cursor", "pointer")
+    .on("mouseover", (event, d) => {
+      const targetGroup = svg.selectAll(".planet-visual").filter(p => p.name === d.name);
+      
+      targetGroup.select(".planet-circle")
+        .attr("stroke-width", 3)
+        .attr("stroke", "white")
+        .attr("fill-opacity", 1);
+        
+      targetGroup.select("text").attr("fill", "white");
+
+      tooltip.style("visibility", "visible")
+        .html(`<strong>${d.name}</strong><br>Raio: ${d.realRadius.toLocaleString()} km`);
+    })
+    .on("mousemove", (event) => {
+      tooltip
+        .style("top", (event.pageY - 45) + "px")
+        .style("left", (event.pageX + 15) + "px");
+    })
+    .on("mouseout", (event, d) => {
+      const targetGroup = svg.selectAll(".planet-visual").filter(p => p.name === d.name);
+      const isFocus = d.name === focusPlanetName;
+
+      targetGroup.select(".planet-circle")
+        .attr("stroke", isFocus ? "white" : "#666")
+        .attr("stroke-width", isFocus ? 2 : 1)
+        .attr("fill-opacity", isFocus ? 0.85 : 0.4);
+        
+      targetGroup.select("text").attr("fill", isFocus ? "white" : "#666");
+
+      tooltip.style("visibility", "hidden");
+    });
+
+  return svg.node();
+}
+
+// Célula 22.2: [Gráfico de massa] ============================================================
+
+createMassChart = (focusPlanetName, containerWidth) => {
+  // 1. Configurações de Dimensão Adaptáveis
+  const width = containerWidth || 400;
+  const height = 220; 
+  const margin = { top: 20, right: 20, bottom: 40, left: 50 };
+
+  // 2. Escalas (Usando seus dados 'planets' e 'mass')
+  const yScale = d3.scaleLog()
+    .domain([0.1, d3.max(planets, d => d.mass)])
+    .range([height - margin.bottom, margin.top]);
+
+  const xScale = d3.scaleBand()
+    .domain(planets.map(d => d.name))
+    .range([margin.left, width - margin.right])
+    .padding(0.3);
+
+  const svg = d3.create("svg")
+    .attr("viewBox", [0, 0, width, height])
+    .style("overflow", "visible")
+    .style("display", "block");
+
+  // 3. Eixos com estilo refinado
+  svg.append("g")
+    .attr("transform", `translate(${margin.left},0)`)
+    .call(d3.axisLeft(yScale).ticks(3, ".1f"))
+    .call(g => {
+      g.selectAll("text").attr("fill", "#888").style("font-size", "10px");
+      g.select(".domain").attr("stroke", "#444");
+      g.selectAll("line").attr("stroke", "#222");
+    });
+
+  svg.append("g")
+    .attr("transform", `translate(0,${height - margin.bottom})`)
+    .call(d3.axisBottom(xScale))
+    .call(g => {
+      g.selectAll("text").attr("fill", "#bbb").style("font-size", "10px");
+      g.select(".domain").attr("stroke", "#444");
+    });
+
+  // 4. Grupos de Barras
+  const planetGroups = svg.selectAll("g.planet-bar-group")
+    .data(planets)
+    .join("g")
+    .attr("class", "planet-bar-group");
+
+  // Barras Visíveis
+  planetGroups.append("rect")
+    .attr("class", "visible-bar")
+    .attr("x", d => xScale(d.name))
+    .attr("y", d => yScale(d.mass))
+    .attr("width", xScale.bandwidth())
+    .attr("height", d => height - margin.bottom - yScale(d.mass))
+    .attr("fill", d => d.name === focusPlanetName ? d.color : "#808080")
+    .attr("fill-opacity", 0.7)
+    .attr("stroke", d => d.name === focusPlanetName ? d.color : "none")
+    .attr("stroke-width", 1.5)
+    .style("transition", "fill 0.2s, stroke 0.2s, fill-opacity 0.2s");
+
+  // 5. Tooltip Global
+  const tooltip = d3.select("body").selectAll(".mass-tooltip").data([null]).join("div")
+    .attr("class", "mass-tooltip")
+    .style("position", "absolute")
+    .style("visibility", "hidden")
+    .style("background", "rgba(0,0,0,0.95)")
+    .style("color", "white")
+    .style("padding", "8px 12px")
+    .style("border", "1px solid #444")
+    .style("border-radius", "4px")
+    .style("font-size", "12px")
+    .style("pointer-events", "none")
+    .style("z-index", "3000");
+
+  // 6. Camada de Interação (Overlays Transparentes)
+  planetGroups.append("rect")
+    .attr("x", d => xScale(d.name) - (xScale.step() * xScale.paddingInner() / 2))
+    .attr("y", margin.top)
+    .attr("width", xScale.step())
+    .attr("height", height - margin.top - margin.bottom)
+    .attr("fill", "transparent")
+    .style("cursor", "pointer")
+    .on("mouseover", (event, d) => {
+      tooltip.style("visibility", "visible")
+        .html(`<strong>${d.name}</strong><br>Massa: ${d.mass.toLocaleString()} × 10²⁴ kg`);
+      
+      d3.select(event.currentTarget.parentNode).select(".visible-bar")
+        .attr("stroke", "white")
+        .attr("stroke-width", 2)
+        .attr("fill-opacity", 1);
+    })
+    .on("mousemove", (event) => {
+      tooltip.style("top", (event.pageY - 45) + "px")
+             .style("left", (event.pageX + 15) + "px");
+    })
+    .on("mouseout", (event, d) => {
+      tooltip.style("visibility", "hidden");
+      const isFocus = d.name === focusPlanetName;
+      d3.select(event.currentTarget.parentNode).select(".visible-bar")
+        .attr("stroke", isFocus ? d.color : "none")
+        .attr("stroke-width", isFocus ? 1.5 : 0)
+        .attr("fill-opacity", 0.7);
+    });
+
+  return svg.node();
+}
+
+// Célula 22.3: [Gráfico de linha orbital] ====================================================
+
+createOrbitLineChart = (focusPlanetName, containerWidth) => {
+  // 1. Configurações de Dimensão Adaptáveis
+  const width = containerWidth || 400;
+  const height = 220; 
+  const margin = { top: 30, right: 30, bottom: 40, left: 60 };
+
+  const maxOrbitKM = 4.5e9;
+
+  // 2. Escalas (Usando seus dados 'planets')
+  const yScale = d3.scaleLinear()
+    .domain([0, maxOrbitKM])
+    .range([height - margin.bottom, margin.top]);
+
+  const xScale = d3.scalePoint()
+    .domain(planets.map(d => d.name))
+    .range([margin.left, width - margin.right])
+    .padding(0.5);
+
+  const svg = d3.create("svg")
+    .attr("viewBox", [0, 0, width, height])
+    .style("overflow", "visible")
+    .style("display", "block");
+
+  // 3. Eixos com formatação em Bilhões (Estilo do colega)
+  const yTickValues = [0, 1.5e9, 3e9, 4.5e9];
+  const yAxis = d3.axisLeft(yScale)
+    .tickValues(yTickValues)
+    .tickFormat(d => d === 0 ? "0" : (d / 1e9).toFixed(1) + "B km");
+
+  svg.append("g")
+    .attr("transform", `translate(${margin.left},0)`)
+    .call(yAxis)
+    .call(g => {
+      g.selectAll("text").attr("fill", "#888").style("font-size", "9px");
+      g.selectAll("line").attr("stroke", "#222");
+      g.select(".domain").attr("stroke", "#444");
+      // Linhas de grade horizontais
+      g.selectAll(".tick line")
+        .attr("x2", width - margin.left - margin.right)
+        .attr("stroke-opacity", 0.1);
+    });
+
+  svg.append("g")
+    .attr("transform", `translate(0,${height - margin.bottom})`)
+    .call(d3.axisBottom(xScale))
+    .call(g => {
+      g.selectAll("text").attr("fill", "#bbb").style("font-size", "9px");
+      g.select(".domain").attr("stroke", "#444");
+    });
+
+  // 4. Linha Orbital
+  svg.append("path")
+    .datum(planets)
+    .attr("fill", "none")
+    .attr("stroke", "#333")
+    .attr("stroke-width", 2)
+    .attr("d", d3.line()
+      .x(d => xScale(d.name))
+      .y(d => yScale(d.orbit))
+    );
+
+  // 5. Pontos e Brilho de Foco
+  const dots = svg.append("g")
+    .selectAll("circle")
+    .data(planets)
+    .join("circle")
+    .attr("class", "visible-dot")
+    .attr("cx", d => xScale(d.name))
+    .attr("cy", d => yScale(d.orbit))
+    .attr("r", 4)
+    .attr("fill", d => d.name === focusPlanetName ? d.color : "#444")
+    .attr("stroke", d => d.name === focusPlanetName ? d.color : "#666")
+    .attr("stroke-width", d => d.name === focusPlanetName ? 2 : 1)
+    .attr("fill-opacity", d => d.name === focusPlanetName ? 1 : 0.5);
+
+  // Aro de destaque para o planeta focado
+  const focusData = planets.find(p => p.name === focusPlanetName);
+  if (focusData) {
+    svg.append("circle")
+      .attr("cx", xScale(focusData.name))
+      .attr("cy", yScale(focusData.orbit))
+      .attr("r", 10)
+      .attr("fill", "none")
+      .attr("stroke", focusData.color)
+      .attr("stroke-width", 1.5)
+      .attr("stroke-dasharray", "2,2")
+      .style("filter", "drop-shadow(0 0 3px " + focusData.color + ")");
+  }
+
+  // 6. Tooltip Global
+  const tooltip = d3.select("body").selectAll(".orbit-tooltip").data([null]).join("div")
+    .attr("class", "orbit-tooltip")
+    .style("position", "absolute")
+    .style("visibility", "hidden")
+    .style("background", "rgba(0,0,0,0.95)")
+    .style("color", "white")
+    .style("padding", "8px 12px")
+    .style("border", "1px solid #444")
+    .style("border-radius", "4px")
+    .style("font-size", "12px")
+    .style("pointer-events", "none")
+    .style("z-index", "3000");
+
+  // 7. Camada de Interação (Zonas de Captura Verticais)
+  const step = (width - margin.left - margin.right) / (planets.length - 1 || 1);
+
+  svg.append("g")
+    .selectAll("rect")
+    .data(planets)
+    .join("rect")
+    .attr("x", d => xScale(d.name) - step / 2)
+    .attr("y", 0)
+    .attr("width", step)
+    .attr("height", height)
+    .attr("fill", "transparent")
+    .style("cursor", "pointer")
+    .on("mouseover", (event, d) => {
+      tooltip.style("visibility", "visible")
+        .html(`<strong>${d.name}</strong><br>Distância: ${(d.orbit / 1e6).toFixed(1)} mi km`);
+
+      svg.selectAll(".visible-dot")
+        .filter(p => p.name === d.name)
+        .attr("stroke", "white")
+        .attr("stroke-width", 2)
+        .attr("fill-opacity", 1);
+    })
+    .on("mousemove", (event) => {
+      tooltip.style("top", (event.pageY - 45) + "px")
+             .style("left", (event.pageX + 15) + "px");
+    })
+    .on("mouseout", (event, d) => {
+      tooltip.style("visibility", "hidden");
+      const isFocus = d.name === focusPlanetName;
+      svg.selectAll(".visible-dot")
+        .filter(p => p.name === d.name)
+        .attr("stroke", isFocus ? d.color : "#666")
+        .attr("stroke-width", isFocus ? 2 : 1)
+        .attr("fill-opacity", isFocus ? 1 : 0.5);
+    });
+
+  return svg.node();
+}
+
+// Célula 22.4: [Gráfico de barras horizontais] ===============================================
+
+createHorizontalBarChart = (focusPlanetName, containerWidth) => {
+  // 1. Configurações de Dimensão Adaptáveis
+  const width = containerWidth || 400;
+  const height = 250; 
+  const margin = { top: 10, right: 50, bottom: 40, left: 80 };
+
+  // 2. Ordenação e Escalas (Usando seu array 'planets' e 'period')
+  const data = [...planets].sort((a, b) => a.period - b.period);
+
+  const xScale = d3.scaleLinear()
+    .domain([0, d3.max(data, d => d.period)])
+    .range([0, width - margin.left - margin.right]);
+
+  const yScale = d3.scaleBand()
+    .domain(data.map(d => d.name))
+    .range([height - margin.top - margin.bottom, 0])
+    .padding(0.2);
+
+  const svg = d3.create("svg")
+    .attr("viewBox", [0, 0, width, height])
+    .style("display", "block")
+    .style("overflow", "visible");
+
+  const g = svg.append("g")
+    .attr("transform", `translate(${margin.left},${margin.top})`);
+
+  // 3. Eixos
+  g.append("g")
+    .attr("transform", `translate(0,${height - margin.top - margin.bottom})`)
+    .call(d3.axisBottom(xScale).ticks(4).tickFormat(d => `${d.toLocaleString()}d`))
+    .call(g => g.selectAll("text").attr("fill", "#666").style("font-size", "10px"))
+    .call(g => g.select(".domain").attr("stroke", "#333"));
+
+  g.append("g")
+    .call(d3.axisLeft(yScale))
+    .call(g => g.selectAll("text").attr("fill", "#bbb").style("font-size", "10px"))
+    .call(g => g.select(".domain").remove())
+    .call(g => g.selectAll(".tick line").remove());
+
+  // 4. Tooltip Global
+  const tooltip = d3.select("body").selectAll(".chart-tooltip").data([null]).join("div")
+    .attr("class", "chart-tooltip")
+    .style("position", "absolute")
+    .style("visibility", "hidden")
+    .style("background", "rgba(0,0,0,0.95)")
+    .style("color", "white")
+    .style("padding", "8px 12px")
+    .style("border", "1px solid #444")
+    .style("border-radius", "4px")
+    .style("font-size", "12px")
+    .style("pointer-events", "none")
+    .style("z-index", "3000");
+
+  // 5. Camada de Interação (Grupos por Planeta)
+  const interactionGroups = g.selectAll(".interact-group")
+    .data(data)
+    .join("g")
+    .attr("class", "interact-group");
+
+  // Barras Visíveis
+  interactionGroups.append("rect")
+    .attr("class", "visible-bar")
+    .attr("x", 0)
+    .attr("y", d => yScale(d.name))
+    .attr("height", yScale.bandwidth())
+    .attr("width", d => xScale(d.period))
+    .attr("fill", d => d.name === focusPlanetName ? d.color : "#333")
+    .attr("fill-opacity", d => d.name === focusPlanetName ? 1 : 0.6)
+    .style("transition", "fill 0.2s, stroke 0.2s");
+
+  // Retângulos de Captura (Invisíveis e largos para facilitar o hover)
+  interactionGroups.append("rect")
+    .attr("x", 0)
+    .attr("y", d => yScale(d.name))
+    .attr("width", width - margin.left - margin.right)
+    .attr("height", yScale.bandwidth())
+    .attr("fill", "transparent")
+    .style("cursor", "pointer")
+    .on("mouseover", (event, d) => {
+      const isFocus = d.name === focusPlanetName;
+      
+      d3.select(event.currentTarget.parentNode).select(".visible-bar")
+        .attr("fill", isFocus ? d.color : "#666")
+        .attr("stroke", "white")
+        .attr("stroke-width", 1.5)
+        .attr("fill-opacity", 1);
+
+      tooltip.style("visibility", "visible")
+        .html(`<strong>${d.name}</strong><br>Translação: ${d.period.toLocaleString()} dias`);
+    })
+    .on("mousemove", (event) => {
+      tooltip.style("top", (event.pageY - 45) + "px")
+             .style("left", (event.pageX + 15) + "px");
+    })
+    .on("mouseout", (event, d) => {
+      const isFocus = d.name === focusPlanetName;
+      
+      d3.select(event.currentTarget.parentNode).select(".visible-bar")
+        .attr("fill", isFocus ? d.color : "#333")
+        .attr("stroke", "none")
+        .attr("fill-opacity", isFocus ? 1 : 0.6);
+
+      tooltip.style("visibility", "hidden");
+    });
+
+  return svg.node();
+}
