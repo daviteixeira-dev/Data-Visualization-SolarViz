@@ -4,8 +4,23 @@ d3 = require("d3@6")
 
 // Célula 02: [Planetas] ======================================================================
 
+// Array de objetos contendo os dados fundamentais dos planetas para a simulação
 planets = [
-  { name: "Mercúrio", color: "#b1b1b1", radius: 3, realRadius: 2439, orbit: 58e6, a_AU: 0.387, period: 88, mass: 0.330, img: "https://upload.wikimedia.org/wikipedia/commons/4/4a/Mercury_in_true_color.jpg", e: 0.2056, i: 7.00, p_arg: 252.25 },
+  { 
+    name: "Mercúrio", 
+    color: "#b1b1b1",         // Cor representativa para a visualização
+    radius: 3,                // Raio estilizado para a representação gráfica
+    realRadius: 2439,         // Raio real em km (usado em cálculos de escala)
+    orbit: 58e6,              // Semi-eixo maior em km
+    a_AU: 0.387,              // Semi-eixo maior em Unidades Astronômicas (UA)
+    period: 88,               // Período orbital em dias terrestres
+    mass: 0.330,              // Massa (10^24 kg)
+    img: "https://upload.wikimedia.org/wikipedia/commons/4/4a/Mercury_in_true_color.jpg", 
+    e: 0.2056,                // Excentricidade da órbita (forma da elipse)
+    i: 7.00,                  // Inclinação orbital em graus em relação à eclíptica
+    p_arg: 252.25             // Longitude do periastro (ajusta a orientação da órbita)
+  },
+  // ... (os demais planetas seguem a mesma estrutura de parâmetros orbitais Keplerianos)
   { name: "Vênus", color: "#e0b55b", radius: 5, realRadius: 6051, orbit: 108e6, a_AU: 0.723, period: 225, mass: 4.87, img: "https://upload.wikimedia.org/wikipedia/commons/0/08/Venus_from_Mariner_10.jpg", e: 0.0068, i: 3.39, p_arg: 181.98 },
   { name: "Terra", color: "#4fa3ff", radius: 5, realRadius: 6371, orbit: 150e6, a_AU: 1.000, period: 365, mass: 5.97, img: "https://upload.wikimedia.org/wikipedia/commons/9/97/The_Earth_seen_from_Apollo_17.jpg", e: 0.0167, i: 0.00, p_arg: 102.95 },
   { name: "Marte", color: "#d14f2b", radius: 4, realRadius: 3389, orbit: 228e6, a_AU: 1.524, period: 687, mass: 0.642, img: "https://upload.wikimedia.org/wikipedia/commons/0/02/OSIRIS_Mars_true_color.jpg", e: 0.0934, i: 1.85, p_arg: 336.04 },
@@ -17,11 +32,14 @@ planets = [
 
 // Célula 03: [Luas] ==========================================================================
 
+// Array de objetos definindo satélites naturais selecionados para a visualização hierárquica.
 moons = [
-  // Lua da Terra
+  // A propriedade 'planet' serve como chave estrangeira para vincular a lua ao seu corpo pai.
+  // 'orbit' aqui representa a distância média em relação ao centro do planeta (em km).
+  // 'period' é o tempo de translação ao redor do planeta em dias terrestres.
   { name: "Lua", planet: "Terra", radius: 2, orbit: 384400, period: 27.3 },
 
-  // Luas de Júpiter
+  // Luas Galileanas de Júpiter
   { name: "Io", planet: "Júpiter", radius: 2, orbit: 421700, period: 1.77 },
   { name: "Europa", planet: "Júpiter", radius: 2, orbit: 671100, period: 3.55 },
   { name: "Ganimedes", planet: "Júpiter", radius: 3, orbit: 1070400, period: 7.15 },
@@ -32,75 +50,94 @@ moons = [
 ]
 
 // Célula 04: [Escala das orbitas dos planetas e das luas] ====================================
+
+// Define as funções de mapeamento matemático para converter distâncias astronômicas reais em pixels.
 scaleOrbits = {
-  // Usamos um domínio fixo e robusto que cobre todos os planetas (em KM, de Mercúrio a Netuno)
-  const minOrbitKM = 5e7; // ~50 milhões km (Mercúrio)
-  const maxOrbitKM = 4.5e9; // ~4.5 bilhões km (Netuno)
-  
+  const minOrbitKM = 5e7; // Limite inferior para escala (pericentro de Mercúrio aprox.)
+  const maxOrbitKM = 4.5e9; // Limite superior (órbita de Netuno)
+
+  // d3.scaleLog é essencial aqui: as distâncias no sistema solar crescem exponencialmente.
+  // O logaritmo permite que Mercúrio e Netuno sejam visíveis na mesma tela sem que 
+  // os planetas internos fiquem "espremidos" no centro.
   const planetScale = d3.scaleLog()
     .domain([minOrbitKM, maxOrbitKM])
-    .range([30, 300]); // Definimos um range mínimo (30px) para afastar Mercúrio do Sol, e um máximo (300px).
+    .range([30, 300]); // Mapeia km para um raio visual de 30px a 300px no SVG.
 
+  // Escala para as órbitas das luas em relação ao seu planeta pai.
   const moonScale = d3.scaleLog()
-    .domain([1e5, 4e6]) // valores típicos da distância das luas
-    .range([8, 25]);     // tamanho visual das órbitas
+    .domain([1e5, 4e6])
+    .range([8, 25]);
 
   return { planetScale, moonScale };
 }
 
 // Célula 5: [Variáveis de estado da animação] ================================================
 
+// Controle de fluxo da simulação. 
+// No Observable, 'mutable' permite que células externas modifiquem esses valores 
+// e outras células reajam a essas mudanças (reatividade).
+
 // Célula 05.1: [Controle de reprodução (play/pause)] =========================================
 
+// Booleano que determina se o tempo da simulação está avançando.
 mutable isRunning = true;
 
 // Célula 05.2: [Timestamp do início da pausa] ================================================
 
+// Registra o momento exato em que o usuário clicou em 'Pause'.
 mutable pauseStart = 0;
 
 // Célula 05.3: [Soma de pausas anteriores] ===================================================
 
+// Acumula o tempo total que o sistema ficou pausado. 
+// Subtraímos este valor do timestamp global para que os planetas não "saltem" 
+// de posição ao despausar.
 mutable accumulatedPauseTime = 0;
 
 // Célula 06: [Container e dimensões] =========================================================
 
+// Define as propriedades espaciais da cena principal.
 containerAndDimensions = {
-  // === Dimensões e ponto central da cena ===
-  const width = 1160;
-  const height = 700;
-  const center = { x: width/2, y: height/2 };
+  const width = 1160; // Largura otimizada para o layout do Observable
+  const height = 700; // Altura da área de visualização
+  const center = { x: width/2, y: height/2 }; // Ponto (0,0) astronômico (Sol) no centro da tela
 
   return { width, height, center };
 }
 
 // Célula 07: [Criação do Container + SVG] ====================================================
 
-// === Container principal ===
+// Função responsável por gerar os elementos de interface (DOM e SVG).
 makeContainerCell = function(width, height) {
+  // Cria uma div pai para permitir sobreposição de elementos (como tooltips).
   const container = document.createElement("div");
   container.style.position = "relative";
 
+  // Inicializa o elemento SVG onde as órbitas e planetas 2D serão desenhados.
   const svg = d3.create("svg")
     .attr("width", width)
     .attr("height", height)
-    .style("background", "#000033") // Adiciona um fundo escuro
+    .style("background", "#000033") // Azul marinho profundo para representar o espaço
     .node()
 
   container.appendChild(svg);
 
+  // Retorna o container DOM e a seleção D3 do SVG para encadeamento de métodos.
   return { container, svg: d3.select(svg) };
 }
 
 // Célula 08: [Fundo Estrelado] ===============================================================
 
-// === Fundo Estrelado ===
+// Gera uma camada estética de estrelas procedurais para aumentar a imersão.
 makeStarfield = function(svg, width, height, n = 300) {
+  // Cria um array de 300 pontos com coordenadas e tamanhos aleatórios.
   const stars = d3.range(n).map(() => ({
     x: Math.random() * width,
     y: Math.random() * height,
-    r: Math.random() * 1.5
+    r: Math.random() * 1.5 // Variação leve no tamanho para simular brilho/distância
   }));
 
+  // Renderiza as estrelas como círculos estáticos no fundo do SVG.
   svg.selectAll("circle.star")
     .data(stars)
     .join("circle")
@@ -116,28 +153,30 @@ makeStarfield = function(svg, width, height, n = 300) {
 
 // Célula 09: [Botão Play/Pause] ==============================================================
 
-// === Botão Play/Pause ===
+// Cria a interface de controle de execução da simulação.
 makePlayPauseButton = function(svg, onToggle) {
+  // Grupo (g) que agrupa os elementos visuais do botão para facilitar o posicionamento e eventos.
   const group = svg.append("g")
-    .attr("transform", "translate(10, 660)") // Posiciona o botão no canto inferior esquerdo (ajuste conforme necessário)
+    .attr("transform", "translate(10, 660)") // Posiciona no canto inferior esquerdo
     .style("cursor", "pointer")
-    .on("click", onToggle);
+    .on("click", onToggle); // Callback que alterna o estado da variável 'isRunning'
 
-  // Fundo e texto do botão
+  // Desenha o corpo do botão com cantos arredondados.
   group.append("rect")
     .attr("width", 55)
     .attr("height", 25)
     .attr("fill", "#555")
-    .attr("rx", 5); // Cantos arredondados
+    .attr("rx", 5);
 
+  // Rótulo de texto centralizado no botão.
   const text = group.append("text")
-    .attr("x", 27.5) // Centro X do retângulo
-    .attr("y", 17) // Posição Y do texto (ajustado para centralizar verticalmente)
+    .attr("x", 27.5)
+    .attr("y", 17)
     .attr("fill", "white")
-    .attr("text-anchor", "middle") // Centraliza o texto horizontalmente
-    .attr("dominant-baseline", "middle") // Centraliza o texto verticalmente
+    .attr("text-anchor", "middle")
+    .attr("dominant-baseline", "middle")
     .style("font-size", "12px")
-    .text("Pause");                            // Texto inicial é "Pause" (pois está rodando)
+    .text("Pause"); // Estado inicial (simulação começando ativa)
 
   return { group, text };
 }
@@ -146,27 +185,30 @@ makePlayPauseButton = function(svg, onToggle) {
 
 // Célula 10.1: [Variável de Velocidade] ======================================================
 
+// Fator de escala para o tempo. 
+// 1 = Tempo real da simulação; >1 = Aceleração temporal; <1 = Câmera lenta.
 mutable speed = 1;
 
 // Célula 10.2: [Controles] ===================================================================
 
-// === Menu de Velocidade (Engrenagem + Controles) ===
+// Constrói o painel de configurações de velocidade usando elementos HTML sobrepostos ao SVG.
 makeSpeedMenu = function(container, svg) {
   
-  // === Menu flutuante (inicialmente oculto) ===
+  // Cria um elemento <div> para o menu flutuante. 
+  // Usamos 'absolute' para posicioná-lo sobre o canvas do sistema solar.
   const speedMenu = document.createElement("div");
   speedMenu.style.position = "absolute";
-  speedMenu.style.bottom = "60px"; // Acima dos controles inferiores
+  speedMenu.style.bottom = "60px";
   speedMenu.style.left = "10px";
-  speedMenu.style.background = "#2a2a2a"; // Estilo painel escuro
+  speedMenu.style.background = "#2a2a2a";
   speedMenu.style.padding = "15px";
   speedMenu.style.borderRadius = "8px";
   speedMenu.style.boxShadow = "0 4px 8px rgba(0,0,0,0.5)";
-  speedMenu.style.display = "none";
+  speedMenu.style.display = "none"; // Inicia oculto (toggle via engrenagem)
   speedMenu.style.color = "white";
   speedMenu.style.width = "300px";
 
-  // Estrutura interna do menu
+  // Define a interface com sliders e inputs numéricos para controle fino.
   speedMenu.innerHTML = `
     <strong>Velocidade da reprodução</strong>
     <hr style="border-color:#555;">
@@ -188,18 +230,15 @@ makeSpeedMenu = function(container, svg) {
 
   container.appendChild(speedMenu);
 
-  // === Sincronização dos controles de velocidade ===
+  // Listeners para eventos de input e botões de atalho.
   const sliderInput = speedMenu.querySelector("#speedSlider");
   const numberInput = speedMenu.querySelector("#speedNumber");
 
-  // Atualiza velocidade e sincroniza campos
+  // Função interna para garantir que todos os inputs (slider e número) reflitam o mesmo valor.
   const updateSpeed = (newSpeed) => {
-
       // Verifica se o novo valor é um número válido, senão usa 1 como padrão
       const validatedSpeed = isNaN(newSpeed) || newSpeed === 0 ? 1 : newSpeed;
-    
-      // Altera a variável 'mutable'
-      mutable speed = validatedSpeed; 
+      mutable speed = validatedSpeed; // Atualiza a variável reativa do Observable
       sliderInput.value = validatedSpeed;
       numberInput.value = validatedSpeed;
   };
@@ -213,107 +252,92 @@ makeSpeedMenu = function(container, svg) {
   speedMenu.querySelector("#btn-1x").addEventListener("click", () => updateSpeed(1));
   speedMenu.querySelector("#btn-2x").addEventListener("click", () => updateSpeed(2));
 
-  // === Ícone de configurações (Engrenagem) ===
+  // Implementação da Engrenagem (SVG) que controla a visibilidade do menu (HTML).
   const settingsIcon = svg.append("g")
-    .attr("transform", "translate(80, 660)") // Posição próxima ao botão Play/Pause
+    .attr("transform", "translate(80, 660)")
     .style("cursor", "pointer")
     .on("click", (event) => {
-      // Evita fechamento imediato do menu
-      event.stopPropagation();
+      event.stopPropagation(); // Impede que o clique feche o menu imediatamente
       speedMenu.style.display = (speedMenu.style.display === "none") ? "block" : "none";
     });
 
-  // Ícone simples (placeholder visual)
-  settingsIcon.append("rect")
-    .attr("width", 30)
-    .attr("height", 25)
-    .attr("fill", "#555")
-    .attr("rx", 5);
-  settingsIcon.append("text")
-    .attr("x", 15)
-    .attr("y", 17)
-    .attr("fill", "white")
-    .attr("text-anchor", "middle")
+  // Desenha o ícone de engrenagem unicode.
+  settingsIcon.append("rect").attr("width", 30).attr("height", 25).attr("fill", "#555").attr("rx", 5);
+  settingsIcon.append("text").attr("x", 15).attr("y", 17).attr("fill", "white").attr("text-anchor", "middle")
     .attr("dominant-baseline", "middle")
     .style("font-size", "18px")
     .text("⚙︎");
   
-  // Adiciona o listener para fechar o menu ao clicar fora
+  // Lógica de UX: Fecha o menu automaticamente ao clicar em qualquer área vazia da simulação.
   document.addEventListener("click", (event) => {
-    // Verifica se o clique ocorreu fora do menu E fora do ícone de engrenagem
     if (!speedMenu.contains(event.target) && !settingsIcon.node().contains(event.target)) {
       speedMenu.style.display = "none";
     }
   });
 
-  // Adicione também a linha para evitar a propagação nos inputs
-  sliderInput.addEventListener("input", (e) => {
-      e.stopPropagation(); // Adicione esta linha
-      updateSpeed(parseFloat(e.target.value));
-  });
-  numberInput.addEventListener("input", (e) => {
-      e.stopPropagation(); // Adicione esta linha
-      updateSpeed(parseFloat(e.target.value));
-  });
+  // StopPropagation nos inputs para evitar interferências com outros eventos do container.
+  sliderInput.addEventListener("input", (e) => { e.stopPropagation(); updateSpeed(parseFloat(e.target.value)); });
+  numberInput.addEventListener("input", (e) => { e.stopPropagation(); updateSpeed(parseFloat(e.target.value)); });
 }
 
 // Célula 11: [Encapsulamento do Sistema Solar] ===============================================
+
+// Função principal de montagem da cena, utilizando o padrão de "fábrica" para criar os elementos.
 makeSolarSystem = (svg, planets, moons, scaleOrbits, center, onClickHandler) => {
-  // Toda a renderização do sistema solar é movida para dentro de um grupo centralizado, facilitando a gestão das coordenadas relativas.
+  
+  // Criamos um grupo principal (<g>) e o transladamos para o centro do SVG.
+  // Isso define o Sol como a origem (0,0) do nosso sistema de coordenadas.
   const systemGroup = svg.append("g")
     .attr("transform", `translate(${center.x},${center.y})`);
 
   // === Sol ===
+  // Posicionado no centro absoluto. O onClickHandler permite a integração 
+  // com os gráficos coordenados (Vega-Lite) ao selecionar o Sol.
   systemGroup.append("circle")
-    .attr("cx", 0)                             // Sol está na origem (0,0) do systemGroup
+    .attr("cx", 0)
     .attr("cy", 0)
     .attr("r", 20)
     .attr("fill", "yellow")
     .style("cursor", "pointer")
-    // Adiciona o evento de clique aqui para o Sol
     .on("click", (event, d) => onClickHandler(event, {name: "Sol", type: "Sol", radius: 696000, period: 0, orbit: 0}, 'Sol'))
     .append("title")
     .text("Sol");
 
-  // === Órbitas dos planetas (traçadas reais via Path) ===
+  // === Órbitas dos planetas (Traçados Reais) ===
+  // Diferente de círculos perfeitos, usamos caminhos (paths) baseados em 
+  // modelos Keplerianos para representar a excentricidade real das órbitas.
   systemGroup.selectAll("path.orbit-sun")
     .data(planets)
     .join("path")
     .attr("class", "orbit-sun")
     .attr("fill", "none")
     .attr("stroke", "rgba(255,255,255,0.2)")
-    .attr("stroke-dasharray", "2,2")
+    .attr("stroke-dasharray", "2,2") // Linha pontilhada para fins estéticos
     .attr("d", d => {
-      // 1. Gera os pontos para o planeta específico
-      const points = generateOrbitPathPoints(
-        d, 
-        auxiliaryOrbitalFunctions, // Passa a referência para a Célula 15
-        scaleOrbits.planetScale    // Passa a referência para a Célula 4
-      );
-
-      // 2. Usa o gerador de linha do D3 para transformar os pontos em um atributo 'd' do path
-      // Usamos .curve(d3.curveCardinalClosed) para fechar a curva suavemente
+      // Gera os pontos da elipse orbital e aplica uma curva Cardinal fechada do D3
+      const points = generateOrbitPathPoints(d, auxiliaryOrbitalFunctions, scaleOrbits.planetScale);
       return d3.line().curve(d3.curveCardinalClosed)(points);
     });
 
-  // === Agrupamento das luas por planeta ===
+  // Agrupamento lógico das luas usando d3.group para otimizar a busca por planeta pai.
   const moonsByPlanet = d3.group(moons, d => d.planet);
 
-  // === Grupos dos planetas ===
+  // === Renderização de Planetas e seus Sistemas (Anéis e Luas) ===
   const planetGroups = systemGroup.selectAll("g.planet")
     .data(planets)
     .join("g")
     .attr("class", "planet");
 
-  // === Função que adiciona anéis a um planeta ===
+  // Função interna para injetar a geometria dos anéis (exclusiva para gigantes gasosos).
   function addPlanetRings(planetGroup, planetData) {
-    
     const hasRings = ["Júpiter", "Saturno", "Urano", "Netuno"].includes(planetData.name);
-    if (!hasRings) return; // Se não for um desses, sai da função.
+    if (!hasRings) return;
 
-    // Definimos raios internos e externos fictícios para os anéis, a inclinação, número e cor dos anéis
+    // Lógica de design: Define raios e inclinações específicas para cada planeta.
+    // Nota: Urano recebe inclinação de 90° para refletir seu eixo de rotação único.
     let innerRadius, outerRadius, inclination, numRings, baseColor;
 
+    // Lógica de switch para cada gigante
     switch(planetData.name){
       case "Júpiter":
         // Anéis finos e próximos ao planeta
@@ -349,7 +373,7 @@ makeSolarSystem = (svg, planets, moons, scaleOrbits, center, onClickHandler) => 
         break;
     }
 
-    // Gera os dados para as múltiplas faixas dos anéis
+    // Cria faixas concêntricas (anéis) usando d3.arc() para simular densidade.
     const ringsData = d3.range(numRings).map(i => {
       const t = i / (numRings - 1 || 1); // Normaliza o índice entre 0 e 1 e garante divisão por 1 se numRings for 1 ou 2
       return {
@@ -361,10 +385,10 @@ makeSolarSystem = (svg, planets, moons, scaleOrbits, center, onClickHandler) => 
       };
     });
 
-    // Cria um grupo para todos os anéis e aplica a inclinação
+    // Cria um grupo para todos os anéis e aplica a inclinação correta
     const ringsGroup = planetGroup.append("g")
       .attr("class", "planet-rings-group")
-      .attr("transform", `rotate(${inclination}, 0, 0)`); // Aplica a inclinação correta
+      .attr("transform", `rotate(${inclination}, 0, 0)`);
 
     ringsGroup.selectAll("path.planet-ring-segment")
       .data(ringsData)
@@ -382,9 +406,8 @@ makeSolarSystem = (svg, planets, moons, scaleOrbits, center, onClickHandler) => 
       .attr("fill-opacity", d => d.opacity);
   }
 
-  // === Órbitas das luas (desenhadas dentro do grupo do planeta) ===
-    planetGroups.each(function(planetData){
-      
+  // === Grupos Internos e Luas ===
+  planetGroups.each(function(planetData){
       const planetGroup = d3.select(this);
       
       const planetMoons = moonsByPlanet.get(planetData.name);
@@ -414,7 +437,8 @@ makeSolarSystem = (svg, planets, moons, scaleOrbits, center, onClickHandler) => 
       // Chamamos a função para adicionar anéis a este grupo interno
       addPlanetRings(planetInnerGroup, planetData);
 
-      // Planeta (círculo) desenhado DENTRO do grupo interno
+      // Criamos um 'planetInnerGroup' para separar a rotação axial do planeta 
+      // da sua translação orbital (que será controlada pelo planetGroup pai).
       planetInnerGroup.append("circle")
         .attr("class", "planet-circle")
         .style("cursor", "pointer")
@@ -424,15 +448,14 @@ makeSolarSystem = (svg, planets, moons, scaleOrbits, center, onClickHandler) => 
         .attr("stroke-width", 0.5)
         .attr("cx", 0)
         .attr("cy", 0)
-        // Adiciona o evento de clique aqui para os Planetas
+        // Adiciona o evento de clique para os Planetas
         .on("click", (event, d) => onClickHandler(event, d, 'planet'))
         .append("title")
         .text(d => d.name);
 
-      // Luas (se existirem) - também adicionadas ao grupo interno para herdar a inclinação
+      // Renderiza as luas se o planeta possuir satélites no nosso dataset.
       const planetMoons = moonsByPlanet.get(planetData.name);
-
-      if (!planetMoons) return;                   // planeta sem luas → ignora
+      if (!planetMoons) return;
 
       // Cria grupo para as luas
       const moonGroups = planetInnerGroup.selectAll("g.moon")
@@ -440,7 +463,7 @@ makeSolarSystem = (svg, planets, moons, scaleOrbits, center, onClickHandler) => 
         .join("g")
         .attr("class", "moon");
 
-      // Desenha a lua (agora na origem local do seu próprio grupo, a translação virá na animação)
+      // Desenha a lua
       moonGroups.append("circle")
         .attr("r", d => d.radius)
         .attr("fill", "white")
@@ -458,21 +481,22 @@ makeSolarSystem = (svg, planets, moons, scaleOrbits, center, onClickHandler) => 
 
 // Célula 12: [Geração dos dados para os asteroides] ==========================================
 
+// Cria um dataset procedural para popular o cinturão de asteroides de forma realista.
 asteroidBeltData = {
-  // Define os raios orbitais de Marte e Júpiter (use os valores dos seus dados)
+  // Define os limites do cinturão (entre as órbitas de Marte e Júpiter) em KM.
   const marsOrbitKM = planets.find(p => p.name === "Marte").orbit;
   const jupiterOrbitKM = planets.find(p => p.name === "Júpiter").orbit;
 
-  // Define a faixa de órbita em KM (valores reais)
-  const minOrbitKM = marsOrbitKM + 1e7; 
-  const maxOrbitKM = jupiterOrbitKM - 1e7; 
+  const minOrbitKM = marsOrbitKM + 1e7; // Começa 10 milhões de km após Marte
+  const maxOrbitKM = jupiterOrbitKM - 1e7; // Termina 10 milhões de km antes de Júpiter
 
   const numAsteroids = 1000;
+  // d3.range cria um array de 1000 elementos. Mapeamos para criar objetos de dados.
   const asteroids = d3.range(numAsteroids).map(() => ({
-    orbit_km: d3.randomUniform(minOrbitKM, maxOrbitKM)(), // Armazena a distância REAL
-    angle: d3.randomUniform(0, 2 * Math.PI)(),
-    speed: d3.randomUniform(0.5, 2.0)(),
-    radius: d3.randomUniform(0.2, 1.5)()
+    orbit_km: d3.randomUniform(minOrbitKM, maxOrbitKM)(), // Distribuição uniforme das distâncias
+    angle: d3.randomUniform(0, 2 * Math.PI)(),            // Posição angular inicial aleatória
+    speed: d3.randomUniform(0.5, 2.0)(),                  // Velocidade de animação procedural (não física)
+    radius: d3.randomUniform(0.2, 1.5)()                  // Tamanho visual aleatório
   }));
 
   return asteroids;
@@ -480,27 +504,29 @@ asteroidBeltData = {
 
 // Célula 13: [Renderização dos asteroides] ===================================================
 
+// Renderiza visualmente os asteroides gerados na Célula 12 no grupo principal do sistema.
 makeAsteroidBelt = (systemGroup, asteroids) => {
-  // Cria um grupo de elementos (g) para cada asteroide.
-  // Isso facilita a transformação e animação individual de cada um.
+  // Cria um grupo (<g>) para cada asteroide, que será usado posteriormente para aplicar a transformação (translação).
   const asteroidGroups = systemGroup.selectAll("g.asteroid")
     .data(asteroids)
     .join("g")
     .attr("class", "asteroid");
 
-  // Adiciona um círculo para representar cada asteroide dentro de seu grupo.
+  // Adiciona o elemento visual (círculo) dentro de cada grupo.
   asteroidGroups.append("circle")
     .attr("cx", 0)
     .attr("cy", 0)
-    .attr("r", d => d.radius) // Define o raio do asteroide usando o valor do dado.
-    .attr("fill", "gray") // Define a cor cinza para os asteroides.
-    .attr("fill-opacity", d3.randomUniform(0.2, 0.7)()); // Define uma opacidade aleatória para variedade visual.
+    .attr("r", d => d.radius)
+    .attr("fill", "gray")
+    .attr("fill-opacity", d3.randomUniform(0.2, 0.7)()); // Opacidade variável para efeito de profundidade.
 
   return asteroidGroups;
 }
 
 // Célula 14: [Carregar Elementos Orbitais do GitHub] =========================================
 
+// Esta célula garante que os dados orbitais detalhados e atualizados da JPL (via GitHub Actions) 
+// estejam disponíveis no ambiente do Observable antes que as funções Keplerianas sejam executadas.
 async function fetchStaticOrbits() {
   const url = "https://raw.githubusercontent.com/daviteixeira-dev/Data-Visualization-SolarViz/main/data/planets_static.json";
   return fetch(url).then(r => r.json());
@@ -508,43 +534,48 @@ async function fetchStaticOrbits() {
 
 // Célula 14.1: [Cache dos Elementos Orbitais] ================================================
 
+// Guarda o resultado do Fetch
 mutable staticOrbits = null;
 
 // Célula 15: [Funções Orbitais Auxiliares] ===================================================
 
+// Implementação das funções matemáticas (Modelo Kepleriano simplificado).
 auxiliaryOrbitalFunctions = {
+  // Helper: Converte graus em radianos (necessário para funções trigonométricas em JS).
   function deg2rad(d) {
     return d * Math.PI / 180;
   }
-  
+
+  // Resolve a Equação de Kepler (M = E - e*sin(E)) iterativamente.
+  // Essencial para calcular a Posição Excêntrica (E) a partir da Anomalia Média (M).
   function solveKepler(M, e, tol = 1e-6) {
-    let E = M;
-    let delta = 1;
-  
+    let E = M;        // E é a Anomalia Excêntrica. Começamos com uma estimativa inicial (M).
+    let delta = 1;    // Diferença para o critério de convergência.
+
+    // Método de Newton-Raphson para encontrar a raiz da equação.
     while (Math.abs(delta) > tol) {
       delta = (E - e * Math.sin(E) - M) / (1 - e * Math.cos(E));
-      E -= delta;
+      E -= delta; // Refina a estimativa de E.
     }
-  
     return E;
   }
-  
+
+  // Converte elementos orbitais clássicos e tempo para coordenadas X, Y no plano da órbita.
   function orbitalElementsToXY(el, timeDays = 0) {
-    const {
-      a_AU,
-      eccentricity: e,
-      M_deg,
-      period_days
-    } = el;
-  
+    const { a_AU, eccentricity: e, M_deg, period_days } = el;
+
+    // Calcula a velocidade angular média (movimento médio)
     const n = 2 * Math.PI / period_days;
+    // Calcula a Anomalia Média (M) no tempo atual.
     const M = deg2rad(M_deg) + n * timeDays;
+    // Resolve M para obter a Anomalia Excêntrica (E).
     const E = solveKepler(M, e);
-  
+
+    // Calcula as coordenadas cartesianas (X, Y) no plano da elipse, com o Sol em um dos focos.
     const x = a_AU * (Math.cos(E) - e);
     const y = a_AU * Math.sqrt(1 - e * e) * Math.sin(E);
   
-    return { x, y };
+    return { x, y }; // Retorna em Unidades Astronômicas (AU)
   }
 
   return { orbitalElementsToXY };
@@ -552,10 +583,12 @@ auxiliaryOrbitalFunctions = {
 
 // Célula 15.1: [Tempo atual da animação] =====================================================
 
+// Variável de estado para rastrear o tempo decorrido da simulação.
 mutable currentAnimationTime = 0;
 
 // Célula 16: [Gerar Pontos da Órbita] ========================================================
 
+// Usa as funções da Célula 15 para pré-calcular pontos que desenham o caminho da órbita (path SVG).
 function generateOrbitPathPoints(planetData, orbitalFunctions, scaleFunction) {
   // Encontra os elementos orbitais estáticos para o planeta específico
   const el = mutable staticOrbits.planets[planetData.name];
@@ -563,20 +596,20 @@ function generateOrbitPathPoints(planetData, orbitalFunctions, scaleFunction) {
 
   const points = [];
   const totalDays = el.period_days;
-  const numPoints = 360; // 1 ponto por grau
+  const numPoints = 360; // 1 ponto para cada passo na órbita
 
   for (let i = 0; i < numPoints; i++) {
     const timeInDays = (i / numPoints) * totalDays;
 
-    // Usa a função de Kepler da Célula 15 para obter X/Y em AU
+    // Obtém a posição em AU.
     const posAU = orbitalFunctions.orbitalElementsToXY(el, timeInDays);
 
-    // Converte de AU para KM
+    // Converte de AU para KM (constante de conversão).
     const AU_TO_KM = 149597870;
     const x_km = posAU.x * AU_TO_KM;
     const y_km = posAU.y * AU_TO_KM;
 
-    // Converte de KM para Pixels usando sua escala logarítmica da Célula 4
+    // Transforma a posição real (KM) na posição visual (Pixels) usando a escala logarítmica.
     const rKM = Math.sqrt(x_km**2 + y_km**2);
     const angleRad = Math.atan2(y_km, x_km);
     
@@ -592,7 +625,9 @@ function generateOrbitPathPoints(planetData, orbitalFunctions, scaleFunction) {
 
 // Célula 17: [Tela de Planejamento da Missão] ================================================
 
+// Cria a interface do usuário (UI) para o "diferencial do projeto": o planejamento de rotas de trânsito espacial.
 makeMissionUI = function(container) {
+  // Cria o painel HTML flutuante usando template literals (`html` do Observable).
   const missionDiv = html`<div style="
     position: absolute; top: 10px; left: 10px; background: rgba(17, 17, 17, 0.95);
     padding: 15px; border-radius: 8px; color: white; font-family: sans-serif;
@@ -617,11 +652,17 @@ makeMissionUI = function(container) {
     </div>
   </div>`;
 
-  // Lógica dos Botões
+  container.appendChild(missionDiv);
+
+  // === Lógica dos Controladores ===
+
+  // Botão Confirmar: Define a variável 'mutable mission', que acionará a lógica 
+  // de cálculo de transferência de Hohmann em células subsequentes.
   missionDiv.querySelector("#btnConfirm").onclick = () => {
     const origin = missionDiv.querySelector("#origin").value;
     const target = missionDiv.querySelector("#target").value;
     if (origin && target && origin !== target) {
+      // Esta atualização de mutable causa reatividade em outras partes do notebook.
       mutable mission = { origin, target };
       missionDiv.querySelector("#missionStats").style.display = "block";
     } else {
@@ -629,6 +670,7 @@ makeMissionUI = function(container) {
     }
   };
 
+  // Botão Reset: Limpa a missão atual.
   missionDiv.querySelector("#btnReset").onclick = () => {
     mutable mission = null;
     missionDiv.querySelector("#origin").value = "";
@@ -636,65 +678,68 @@ makeMissionUI = function(container) {
     missionDiv.querySelector("#missionStats").style.display = "none";
   };
 
-  container.appendChild(missionDiv);
   return missionDiv;
 }
 
 // Célula 18: [Viewof Sistema Solar + Animação] ===============================================
+
+// A célula 'viewof' combina a visualização com um valor reativo no Observable.
 viewof solarSystem = {
 
-  transferData; // Força a célula a observar a rota.
+  transferData; // Dependência reativa: força a atualização se a rota de missão mudar.
   
-  mutable livePositions;
-  mutable mission;
+  mutable livePositions;    // Armazena as coordenadas reais vindas da API para uso em outros gráficos.
+  mutable mission;          // Estado da missão ativa (Origem/Destino).
 
-  // === Carrega dados STATIC uma vez ===
+  // === Inicialização de Dados ===
+  // Garante que os elementos orbitais da JPL sejam carregados antes de iniciar a cena.
   if (!mutable staticOrbits) {
     mutable staticOrbits = await fetchStaticOrbits();
   }
 
-  // === Estado da animação ===
-  let lastRawElapsed = 0;                   // Armazena o tempo bruto do último frame
-  let lastFrameTime = performance.now();    // Rastreamento do tempo entre frames para suavidade
-
+  // === Controle de Tempo e Performance ===
+  let lastRawElapsed = 0;                   // Tempo total decorrido desde o início.
+  let lastFrameTime = performance.now();    // Delta time para manter 60 FPS estáveis.
   let liveInterval = null;
 
-  // Variáveis para rastrear o estado da transformação do zoom (usado para fechar suavemente)
+  // Gerenciamento de Transformação do D3.zoom para permitir foco em planetas específicos.
   let currentTransform = d3.zoomIdentity;
 
-  // === Container principal ===
-  // Passamos a largura do painel para o container (350px)
+  // === Instanciação da Interface ===
+  // Cria o palco (SVG) e injeta os componentes de UI (Missão, Estrelas, Botões).
   const { container, svg } = makeContainerCell(containerAndDimensions.width + 350, containerAndDimensions.height);
 
-  // INJEÇÃO DA UI DE MISSÃO
+  // === Injeção da UI de Missão ===
   const missionUI = makeMissionUI(container);
 
   // === Fundo Estrelado ===
   makeStarfield(svg, containerAndDimensions.width, containerAndDimensions.height);
 
-  // === Função para fechar painel e resetar visualização ===
+  // === Lógica de Navegação e Câmera ===
+  // Função que reseta o zoom e centraliza o sistema solar quando o usuário fecha o painel lateral.
   const closePanelAndResetView = () => {
     mutable selectedObject = null; // Reseta o estado de seleção
     
-    // Aplica a transição de volta ao normal (scale 1, no centro original)
+    // Transição suave para retornar a escala 1:1 no centro original.
     systemGroup.transition()
       .duration(800)
       .attr("transform", `translate(${containerAndDimensions.center.x},${containerAndDimensions.center.y}) scale(1)`);
       
     infoPanel.style.display = "none"; // Esconde o painel visualmente
 
-    // Retoma a animação se estava pausada para o zoom
+    // Resiliência de Animação: Se o sistema estava pausado para inspeção, retoma o fluxo do tempo.
     if (!mutable isRunning) {
-        mutable isRunning = true; 
-        buttonText.text("Pause");
-        // Ajusta o tempo acumulado para evitar "pulo" na animação quando retomar
-        mutable accumulatedPauseTime += lastRawElapsed - mutable pauseStart;
+      mutable isRunning = true; 
+      buttonText.text("Pause");
+      // Ajusta o tempo acumulado para evitar "pulo" na animação quando retomar
+      mutable accumulatedPauseTime += lastRawElapsed - mutable pauseStart;
     }
   };
 
+  // === Gerenciamento de UI e Painéis ===
+  
   // === Botão Play/Pause ===
   const {text: buttonText } = makePlayPauseButton(svg, () => {
-    // Acessa e altera a variável 'mutable'
     mutable isRunning = !mutable isRunning; // Alterna o estado (Play/Pause)
 
     if (!mutable isRunning) {
@@ -707,21 +752,21 @@ viewof solarSystem = {
     }
   });
 
-  // === Menu de Velocidade (Engrenagem + Controles) ===
+  // === Menu de Velocidade ===
   makeSpeedMenu(container, svg);
 
-  // === Painel de Informações ===
-  // Passamos a função de fechamento para makeInfoPanel
+  // Cria o Painel Lateral de Informações que conterá os gráficos Vega-Lite.
   const infoPanel = makeInfoPanel(container, containerAndDimensions.width, closePanelAndResetView);
 
-  // Função interna para preencher e mostrar o painel
+  // === Integração Multivariada (Dashboard) ===
+  // Função que atualiza o painel lateral com metadados e gráficos comparativos do planeta clicado.
   const updateInfoPanel = (obj) => {
     if(!obj){
       infoPanel.style.display = "none";
       return;
     }
 
-    // 1. Busca dados técnicos do array do colega
+    // 1. Busca dados técnicos de planetas.
     const pData = planets.find(p => p.name === obj.name);
 
     // 2. Preenchimento de Cabeçalho
@@ -735,12 +780,10 @@ viewof solarSystem = {
       infoPanel.querySelector("#objectOrbit").innerHTML = `${(pData.orbit / 1e6).toFixed(1)} <small style="color:#555">mi km</small>`;
     }
 
-    // 3. Renderização dos 4 Gráficos
+    // 3. Orquestra a criação de 4 gráficos especializados (Bolhas, Barras, Log e Linhas)
+    // para fornecer contexto astronômico comparativo.
     const area = infoPanel.querySelector("#chartArea");
     area.innerHTML = ""; // Limpa os gráficos do planeta anterior
-    //area.style.display = "grid";
-    //area.style.gridTemplateColumns = "1fr 1fr"; // Cria as duas colunas
-    //area.style.gap = "20px";
   
     if (obj.type === 'planet') {
       const sections = [
@@ -749,7 +792,8 @@ viewof solarSystem = {
         { title: "Mapeamento de Distância", fn: createOrbitLineChart },
         { title: "Duração do Ano (Translação)", fn: createHorizontalBarChart }
       ];
-  
+
+      // Renderização dos cards de gráficos
       sections.forEach(s => {
         const card = document.createElement("div");
         card.style.cssText = "background: #111; padding: 15px; border-radius: 8px; border: 1px solid #222;";
@@ -762,33 +806,28 @@ viewof solarSystem = {
       });
     } else {
       area.innerHTML = `<div style="text-align:center; color:#444; margin-top:50px;">Gráficos detalhados disponíveis apenas para planetas.</div>`;
-    }
-    
+    }    
     infoPanel.style.display = "block";
   };
 
-  // === Projeção das escalas ===
+  // === Projeção Matemática de Dados Reais ===
+  // Esta função é vital: ela converte coordenadas cartesianas (X, Y) reais do espaço
+  // para a posição visual logarítmica no SVG, mantendo a precisão angular.
   const projectLivePosition = (pos) => {
-    // 1. Calcula a distância real (Pitágoras) em KM a partir dos dados da API
-    // Ignoramos a inclinação Z e projetamos tudo no plano XY
-    const r = Math.sqrt(pos.x * pos.x + pos.y * pos.y);
-  
-    // 2. USA A MESMA planetScale da Célula 4 para escalonar a distância real
-    const scaledR = scaleOrbits.planetScale(r);
+    const r = Math.sqrt(pos.x * pos.x + pos.y * pos.y);   // Distância Euclidiana Real
+    const scaledR = scaleOrbits.planetScale(r);           // Mapeamento Logarítmico
+    const angle = Math.atan2(pos.y, pos.x);               // Ângulo real preservado
 
-    // 3. Calcula o ângulo real atual (Atan2)
-    const angle = Math.atan2(pos.y, pos.x);
-
-    // 4. Retorna a posição projetada para o SVG
     return {
       x: scaledR * Math.cos(angle),
       y: scaledR * Math.sin(angle)
     };
   };
 
-  // Função para calcular a posição X, Y de um objeto baseado no tempo de animação
+  // === Motor de Posicionamento Estático ===
+  // Calcula a posição teórica de planetas e luas caso os dados da API falhem ou o modo LIVE esteja off.
   const getObjectPosition = (d, currentTime) => {
-    // Calcula a posição do objeto relativo ao seu centro orbital (Sol para planetas, Planeta para luas)
+    // (lógica de hierarquia: lua rotaciona ao redor do planeta, que rotaciona ao redor do sol)
     let angle, orbitRadius;
 
     if(d.type === 'planet' || d.type === 'Sol'){
@@ -823,82 +862,76 @@ viewof solarSystem = {
     return { x: 0, y: 0 }; // Fallback
   };
 
-  // === Botão de Ativar LIVE ===
-  const { statusIndicator } = makeLiveButton(svg, async () => { // <--- Captura o statusIndicator
+  // === Gerenciador de Dados em Tempo Real (NASA JPL Mode) ===
+  const { statusIndicator } = makeLiveButton(svg, async () => {
     mutable isLiveMode = !mutable isLiveMode;
 
-    
     // Adicione uma referência global para as órbitas (se ainda não tiver)
     const orbitPaths = svg.selectAll("path.orbit-sun"); 
 
     if (mutable isLiveMode) {
-
-      // --- NOVO: Oculta as linhas de órbita estáticas ---
+      // UX: Esconde órbitas estáticas para focar na posição exata atual.
       orbitPaths.style("display", "none");
-      
-      statusIndicator.attr("fill", "yellow"); // <--- Amarelo: Carregando
-      liveStatusText.text("Carregando..."); // <-- Mostra o carregando
+      statusIndicator.attr("fill", "yellow"); // Amarelo: Carregando
+      liveStatusText.text("Carregando...");
 
-      // Buscamos a posição atual imediatamente
-      // Passamos o callback para função fetch
+      // Fetch assíncrono das efemérides reais via JPL Horizons.
       mutable livePositions = await fetchAllLivePositions(status => {
-        liveStatusText.text(status); // <-- Atualiza o texto com o resultado
+        liveStatusText.text(status);
         if (status.includes("Erro")) {
           liveStatusText.attr("fill", "red");
-          statusIndicator.attr("fill", "red"); // <--- Vermelho: Erro
+          statusIndicator.attr("fill", "red"); // Vermelho: Erro
         } else {
           liveStatusText.attr("fill", "lightgreen");
-          statusIndicator.attr("fill", "green"); // <--- Verde: Ativo
+          statusIndicator.attr("fill", "green"); // Verde: Ativo
         }
       });
 
-      // Configura a atualização periódica (15s)
+      // Pooling: Atualiza a posição real a cada 15 segundos para manter a precisão.
       liveInterval = setInterval(async () => {
         liveStatusText.text("Atualizando...");
-        statusIndicator.attr("fill", "yellow"); // <--- Amarelo: Atualizando
+        statusIndicator.attr("fill", "yellow"); // Amarelo: Atualizando
         
         mutable livePositions = await fetchAllLivePositions(status => {
           liveStatusText.text("LIVE Ativo: " + status.toLowerCase().replace("sucesso!", "dados atualizados."));
-          statusIndicator.attr("fill", "green"); // <--- Verde: Ativo
+          statusIndicator.attr("fill", "green"); // Verde: Ativo
         });
       }, 15000);
 
     } else {
-      // --- NOVO: Mostra as linhas de órbita no modo estático ---
+      // Retorna ao modo de simulação matemática.
       orbitPaths.style("display", "block");
-      
       // Modo Simulação (desliga o LIVE)
       clearInterval(liveInterval);
       liveInterval = null;
-      liveStatusText.text("Simulação Ativa"); // <-- Limpa o status
+      liveStatusText.text("Simulação Ativa"); // Limpa o status
       liveStatusText.attr("fill", "gray");
-      statusIndicator.attr("fill", "red"); // <--- Vermelho: Inativo
+      statusIndicator.attr("fill", "red"); // Vermelho: Inativo
     }
   });
 
   // === Indicador de Status LIVE ===
   const liveStatusText = svg.append("text")
-    .attr("x", 220) // Posição X ao lado do botão LIVE
-    .attr("y", 673) // Posição Y centralizada com o botão
+    .attr("x", 220)
+    .attr("y", 673)
     .attr("fill", "gray")
     .attr("text-anchor", "start")
     .style("font-size", "12px")
-    .text(""); // Texto inicial vazio
+    .text("");
 
   const orbitPaths = svg.selectAll("path.orbit-sun");
 
-  // === Criação do sistema solar ===
-  // Passamos a função handleClick simplificada que apenas atualiza a mutable
+  // === Inicialização do Scenegraph (Sistema Solar) ===
   const { planetGroups, moonsByPlanet, systemGroup } = makeSolarSystem(
     svg, 
     planets, 
     moons, 
     scaleOrbits, 
     containerAndDimensions.center, 
-    (event, d, type) => {
+    (event, d, type) => { // Callback de Clique (Interação)
       event.stopPropagation();
 
-      // Pausa a animação imediatamente
+      // Ao selecionar um corpo, pausamos o tempo para permitir o estudo dos gráficos.
       if (mutable isRunning) {
         mutable isRunning = false;
         buttonText.text("Play");
@@ -906,11 +939,10 @@ viewof solarSystem = {
       }
       
       mutable selectedObject = { ...d, type: type };
-      // isPanelOpen agora é gerenciado implicitamente pela presença de selectedObject
-      // Chamamos a função do painel diretamente aqui no click:
-      updateInfoPanel(mutable selectedObject); // Abre o painel
+      updateInfoPanel(mutable selectedObject); // Aciona o Dashboard Vega-Lite
 
-      // --- LÓGICA DO ZOOM ---
+      // --- LÓGICA DE CÂMERA CINEMATOGRÁFICA ---
+      // Determina o alvo do zoom baseado no modo ativo (Real ou Simulação).
       let targetX, targetY;
 
       if(mutable isLiveMode && mutable livePositions?.[d.name]){
@@ -921,7 +953,7 @@ viewof solarSystem = {
         targetY = projectedPos.y;
         
       } else if(mutable staticOrbits?.planets?.[d.name]){
-        // SE ESTIVER NO MODO ESTÁTICO (GitHub), use a mesma conta Kepler do updatePositions
+        // SE ESTIVER NO MODO ESTÁTICO (GitHub), use a mesma conta via modelo Kepleriano do updatePositions
         const el = mutable staticOrbits.planets[d.name];
         const posAU = auxiliaryOrbitalFunctions.orbitalElementsToXY(el, mutable currentAnimationTime / 100);
         const AU_TO_KM = 149597870;
@@ -937,8 +969,8 @@ viewof solarSystem = {
 
       const scale = 5; // Fator de zoom fixo para todos os objetos
 
-      // Aplica a transformação suave manualmente
-      // Usamos .attr("transform", ...) e d3.transition para evitar conflitos com d3.zoom API
+      // Aplica uma transição suave de Interpolação Geométrica para focar no objeto.
+      // A matemática aqui compensa a escala para manter o planeta centralizado no zoom.
       systemGroup.transition()
         .duration(1000)
         .attr("transform", 
@@ -947,13 +979,15 @@ viewof solarSystem = {
     }
   );
 
-  // Desabilitar completamente a interação manual (scroll/drag/wheel)
+  // Desabilita o zoom padrão do D3 para manter o controle total via código (Storytelling Guiado).
   svg.on(".zoom", null);
 
   // Chama a função para criar o cinturão de asteroides
   const asteroidGroups = makeAsteroidBelt(systemGroup, asteroidBeltData);
 
-  // === Criação do elemento da Rota de Transferência
+  // === Trajetória de Missão ===
+  // Elemento visual (path) que representa a Rota de Transferência de Hohmann 
+  // entre os planetas selecionados na UI de Missão.
   const routePath = systemGroup.append("path")
     .attr("class", "hohmann-route")
     .attr("fill", "none")
@@ -961,9 +995,10 @@ viewof solarSystem = {
     .attr("stroke-width", 2)
     .attr("stroke-dasharray", "5,5")
     .style("pointer-events", "none");
-    //.style("opacity", 0);
 
-  // === Função auxiliar para converter distância radial para X/Y usando a escala LOG ===
+  // === Utilitários Geométricos ===
+  // Converte distâncias lineares (KM) para o sistema de coordenadas SVG (Pixels)
+  // aplicando a distorção Logarítmica para fins de visualização de dados.
   const calculateXY = (distanceKM, angleRad, scaleFunc) => {
       const scaledR = scaleFunc(distanceKM);
       return {
@@ -972,9 +1007,13 @@ viewof solarSystem = {
       };
   };
 
-  // === Função auxiliar para pegar a posição atual de qualquer planeta no tempo 'time' ===
+  // === Motor de Busca de Posição (Abstração) ===
+  // Função polimórfica que resolve a posição de qualquer corpo celeste 
+  // priorizando: 1. Dados LIVE (NASA) -> 2. Dados Estáticos (Kepler/GitHub) -> 3. Fallback (Matemático).
   const getPos = (planetName, time) => {
     const AU_TO_KM = 149597870;
+
+    // (lógica de seleção de fonte de dados baseada no estado 'isLiveMode')
     if (mutable isLiveMode && mutable livePositions?.[planetName]) {
       return projectLivePosition(mutable livePositions[planetName]);
     } else if (mutable staticOrbits?.planets?.[planetName]) {
@@ -989,65 +1028,51 @@ viewof solarSystem = {
     }
   };
 
-  // Função de atualização da posição dos elementos (chamada inicial e no timer)
+  // === Função Principal de Atualização (Frame Update) ===
+  // Responsável por calcular e aplicar as novas coordenadas a todos os elementos da cena.
   const updatePositions = (time) => {
     
-    // === Movimento orbital dos planetas ===
-
-    // 1. Definimos a seleção base dos planetas
-    const selection = planetGroups;
-
-    // 2. Aplique a transição SE estiver no modo LIVE, senão atualize instantaneamente (simulação padrão)
-    //const transitionSelection = mutable isLiveMode ? selection.transition().duration(1000) : selection;
-    const transitionSelection = selection;
-
-    // 3. Aplique a transformação (mesma lógica de cálculo de x, y)
-    transitionSelection.attr("transform", d => {
+    // 1. Atualização dos Planetas (Translação em torno do Sol)
+    // No modo LIVE, as posições são fixas pela efeméride da JPL.
+    // No modo Simulação, as posições seguem o cálculo da Equação de Kepler.
+    planetGroups.attr("transform", d => {
 
       let x, y;
 
-      // === 1. LIVE (backend) ===
+      // === LIVE (backend) ===
       if(mutable isLiveMode && mutable livePositions?.[d.name]){
   
         const posKM = mutable livePositions[d.name]; // Posição X/Y em KM
-  
         const rKM = Math.sqrt(posKM.x * posKM.x + posKM.y * posKM.y);
-  
         const angleRad = Math.atan2(posKM.y, posKM.x);
-          
         const pos = calculateXY(rKM, angleRad, scaleOrbits.planetScale);
         x = pos.x;
         y = pos.y;
   
-      // === 2. STATIC (GitHub JSON) === 
+      // === STATIC (GitHub JSON) === 
       } else if(mutable staticOrbits && mutable staticOrbits.planets?.[d.name]){
   
         // Acessa o objeto do planeta usando a chave correta
         const el = mutable staticOrbits.planets[d.name];
-          
         // Calcula posição orbital em AU (Unidades Astronômicas)
         const posAU = auxiliaryOrbitalFunctions.orbitalElementsToXY(
           el,
           mutable currentAnimationTime / 100 // Ajuste o divisor para a velocidade da simulação
         );
-      
         // CONVERTE DE AU PARA KM (1 AU = ~149.6 milhões de KM)
         const AU_TO_KM = 149597870;
         const x_km = posAU.x * AU_TO_KM;
         const y_km = posAU.y * AU_TO_KM;
-  
         const rKM = Math.sqrt(x_km * x_km + y_km * y_km);
         const angleRad = Math.atan2(y_km, x_km);
-          
         const pos = calculateXY(rKM, angleRad, scaleOrbits.planetScale);
         x = pos.x;
         y = pos.y;
   
-      // === 3. Fallback matemático (se o LIVE falhar) ===
+      // === Fallback matemático (se o LIVE falhar) ===
       }else{
         const angleRad = (mutable currentAnimationTime / (d.period * 100)) * 2 * Math.PI;
         const orbitRadiusKM = d.orbit; // Valor em KM do array original
-          
         const pos = calculateXY(orbitRadiusKM, angleRad, scaleOrbits.planetScale);
         x = pos.x;
         y = pos.y;
@@ -1057,42 +1082,40 @@ viewof solarSystem = {
       
     });
 
-    // === Movimento orbital das luas (relativo ao planeta) ===
+    // 2. Atualização das Luas (Hierarquia Local)
+    // Implementa a transformação relativa: Se o Planeta se move, a Lua o acompanha.
     planetGroups.each(function(planetData) {
       const planetMoons = moonsByPlanet.get(planetData.name);
       if (!planetMoons) return;
       
       d3.select(this).selectAll("g.moon").attr("transform", d => {
-
-        // Identifica o nome do planeta pai (ex: "Terra", "Júpiter")
-        const parentPlanetName = d.planet;
-
-        // Verifica se estamos no modo LIVE e se temos os dados da Lua E do Planeta Pai
-        if (mutable isLiveMode && mutable livePositions[d.name] && mutable livePositions[parentPlanetName]) {
+        // No modo LIVE, subtraímos o vetor Sol-Lua do vetor Sol-Planeta para obter
+        // a posição relativa da Lua em relação ao seu planeta pai.
+        if (mutable isLiveMode && mutable livePositions[d.name] && mutable livePositions[d.planet]) {
           
           const liveMoonSun = mutable livePositions[d.name];
-          const liveParentSun = mutable livePositions[parentPlanetName];
+          const liveParentSun = mutable livePositions[d.planet];
           
-          // 1. Calcular a posição da Lua relativa ao Planeta Pai (em KM)
+          // 2.1 Calcular a posição da Lua relativa ao Planeta Pai (em KM)
           const moonRelX = liveMoonSun.x - liveParentSun.x;
           const moonRelY = liveMoonSun.y - liveParentSun.y;
 
-          // 2. Calcular a distância (raio) e o ângulo relativos
+          // 2.2 Calcular a distância (raio) e o ângulo relativos
           const rKM = Math.sqrt(moonRelX ** 2 + moonRelY ** 2);
           const angle = Math.atan2(moonRelY, moonRelX);
         
-          // 3. Usamos a sua escala de luas definida na Célula 4
+          // 2.3 Usamos a sua escala de luas definida na Célula 4
           const scaledR = scaleOrbits.moonScale(rKM);
 
-          // 4. Transformar em coordenadas X, Y escalonadas
+          // 2.4 Transformar em coordenadas X, Y escalonadas
           const x = scaledR * Math.cos(angle);
           const y = scaledR * Math.sin(angle);
 
-          // Aplicar a translação local
+          // 2.5 Aplicar a translação local
           return `translate(${x}, ${y})`;
         }
 
-        // FALLBACK: Simulação matemática para quaisquer luas se o LIVE falhar
+        // Fallback: Rotação matemática simples baseada no período sinódico.
         const moonAngle = (time / (d.period * 50)) * 2 * Math.PI;
         const moonOrbitRadius = scaleOrbits.moonScale(d.orbit);
         
@@ -1101,13 +1124,13 @@ viewof solarSystem = {
       });
     });
 
-    // === Movimento orbital dos asteroides ===
+    // 3. Movimento do Cinturão de Asteroides
+    // Animação procedural baseada na distância orbital (orbit_km).
+    // Asteroides mais próximos do Sol movem-se mais rápido (3ª Lei de Kepler simplificada).
     asteroidGroups.attr("transform", d => {
-      
       // Ajuste o multiplicador 0.0005 para aumentar ou diminuir a velocidade geral dos asteroides
       const angleRad = (time * 0.0005 * d.speed) + d.angle;
       const scaledR = scaleOrbits.planetScale(d.orbit_km);
-    
       const x = scaledR * Math.cos(angleRad);
       const y = scaledR * Math.sin(angleRad);
       return `translate(${x}, ${y})`;
@@ -1115,9 +1138,7 @@ viewof solarSystem = {
 
 
     // === LÓGICA DA ROTA DE TRANSFERÊNCIA (HOHMANN) ===
-
-    //const currentTransfer = transferData;
-
+    // Este bloco calcula a trajetória elíptica de menor energia entre dois planetas.
     const currentTransfer = transferData;
     
     // Verifica se transferData existe e se contém os planetas antes de prosseguir
@@ -1125,45 +1146,41 @@ viewof solarSystem = {
       const { p1, p2, aTrans, e, phaseAngle, r1, r2, transferTime  } = currentTransfer;
       const AU_TO_KM = 149597870;
       
-      // Obter posições atuais usando a função getPos (agora definida acima)
+      // Obtém a posição angular atual dos planetas de origem e destino.
       const pos1 = getPos(p1.name, time);
       const pos2 = getPos(p2.name, time);
   
-      // 1. Calcular ângulo de fase ATUAL
+      // 1. Cálculo do Ângulo de Fase: Determina a posição relativa entre os planetas.
       const angle1Rad = Math.atan2(pos1.y, pos1.x);
       const angle2Rad = Math.atan2(pos2.y, pos2.x);
-      
       // Ângulo de fase atual considerando o sentido anti-horário do sistema solar
       let currentPhase = ((angle2Rad - angle1Rad) * (180 / Math.PI) + 360) % 360;
   
-      // 2. Verificar Janela (Tolerância 2 graus)
-      // Se estivermos indo para dentro, o alvo deve estar "atrás" na órbita
-      // A tolerância de 5 graus é boa para a simulação
+      // 2. Detecção de Janela de Lançamento:
+      // Compara o ângulo de fase atual com o ângulo teórico ideal para a transferência.
+      // A rota muda de cor (Vermelho -> Verde) quando a janela de 5 graus é atingida.
       const isWindowOpen = Math.abs(currentPhase - phaseAngle) < 5 || Math.abs(currentPhase - phaseAngle) > 355; 
       
       routePath.style("display", "block");
       routePath.attr("stroke", isWindowOpen ? "#00ff88" : "#ff4444")
                .attr("opacity", isWindowOpen ? 1 : 0.4);
         
-      const direction = r1 > r2 ? -1 : 1;
-
+      const direction = r1 > r2 ? -1 : 1; // Ajusta o sentido da órbita (para dentro ou para fora)
       const rotation = Math.atan2(pos1.y, pos1.x);
   
-      // 3. Gere os pontos com a correção de direção (Interno vs Externo)
+      // 3. Geração da Geometria da Elipse de Transferência:
+      // Mapeia a equação polar da elipse para pontos cartesianos projetados na escala log.
       const points = d3.range(0, Math.PI + 0.1, 0.1).map(theta => {
-        
         const angleAdjustment = r1 > r2 ? Math.PI : 0;
         const r_km = (aTrans * (1 - e * e)) / (1 + e * Math.cos(theta + angleAdjustment)) * AU_TO_KM;
-        //const r_km = (aTrans * (1 - e * e)) / (1 + e * Math.cos(theta)) * AU_TO_KM;
-        
         const scaledR = scaleOrbits.planetScale(r_km);
-
         return [scaledR * Math.cos(direction * theta + rotation), scaledR * Math.sin(direction * theta + rotation)];
       });
   
       routePath.attr("d", d3.line()(points));
 
-      // 4. ATUALIZAÇÃO DA INTERFACE (HUD)
+      // 4. Interface em Tempo Real (HUD - Heads-Up Display):
+      // Atualiza o painel de missão com dados dinâmicos sobre a viagem.
       const statsDiv = document.querySelector("#missionStats");
       if (statsDiv) {
         statsDiv.style.display = "block";
@@ -1188,36 +1205,28 @@ viewof solarSystem = {
       const statsDiv = document.querySelector("#missionStats");
       if (statsDiv) statsDiv.style.display = "none";
     }
-
   };
 
-  // Aplica as posições iniciais imediatamente após a criação dos elementos
-  updatePositions(mutable currentAnimationTime);
-
-  // === Lógica principal da animação ===
+  // === MOTOR DE ANIMAÇÃO (D3.TIMER) ===
+  // O d3.timer funciona como um requestAnimationFrame otimizado para o Observable.
   const timer = d3.timer(rawElapsed => {
     // Mantém o último tempo bruto para lógica de pausa/play
     lastRawElapsed = rawElapsed;
-
     // Cálculo do delta entre frames (garante animação suave)
     const currentFrameTime = performance.now();
     const deltaTime = currentFrameTime - lastFrameTime;
     lastFrameTime = currentFrameTime;
 
-    // A animação só ocorre se a simulação estiver rodando E nada estiver selecionado (sem zoom fixo)
+    // Incrementa o tempo da simulação apenas se o sistema não estiver pausado ou em zoom de inspeção.
     if(!mutable selectedObject && mutable isRunning){
-      // Atualiza tempo interno da simulação baseado na velocidade
       mutable currentAnimationTime += deltaTime * mutable speed;
     }
 
-    // Chamamos a função de atualização de posições
+    // Ciclo de atualização de todos os elementos gráficos.
     updatePositions(mutable currentAnimationTime);
-    
-    // Se estiver pausado, o loop simplesmente não faz nada dentro do 'if', 
-    // e o accumulatedPauseTime é ajustado no próximo clique em "Play".
   });
 
-  // Limpeza automática do timer no Observable
+  // Gerenciamento de Memória: Para o timer e intervalos se a célula for destruída ou reavaliada.
   invalidation.then(() => {
     timer.stop();
     if (liveInterval) clearInterval(liveInterval);
@@ -1226,33 +1235,38 @@ viewof solarSystem = {
 }
 
 // Célula 18.1: [Estado de Seleção] ===========================================================
-// Armazena o objeto selecionado (planeta, lua ou sol). Null se nada estiver selecionado.
+
+// Singleton que gerencia qual corpo celeste está em foco no sistema.
+// Atua como gatilho reativo para a abertura do painel de detalhes.
 mutable selectedObject = null;
 
 // Célula 18.2: [Estado do painel lateral] ====================================================
-// Controla a visibilidade do painel lateral.
+
+// Booleano de controle de visibilidade da interface de dados Vega-Lite.
 mutable isPanelOpen = false;
 
 // Célula 19: [Painel de Informações Lateral] =================================================
 
+// Componente de interface responsável por exibir os metadados e gráficos Vega-Lite.
 makeInfoPanel = function(container, width, onCloseHandler) {
   
   const infoPanel = document.createElement("div");
+  // Estilização via DOM API para garantir que o painel flutue à direita com scroll independente.
   infoPanel.style.position = "absolute";
   infoPanel.style.top = "10px";
   infoPanel.style.right = "0px";
   infoPanel.style.height = "95%";
-  infoPanel.style.width = "420px"; // Larga o suficiente para gráficos e informações
+  infoPanel.style.width = "420px";
   infoPanel.style.background = "#1a1a1a";
   infoPanel.style.padding = "20px";
   infoPanel.style.color = "white";
   infoPanel.style.boxShadow = "-4px 0 8px rgba(0,0,0,0.5)";
-  infoPanel.style.display = "none"; // Oculto por padrão
+  infoPanel.style.display = "none";
   infoPanel.style.overflowY = "auto";
-   infoPanel.style.zIndex = "1000";
-  infoPanel.style.transition = "right 0.5s ease-in-out"; // Transição suave
+  infoPanel.style.zIndex = "1000";
+  infoPanel.style.transition = "right 0.5s ease-in-out";
 
-  // Estrutura interna inicial (será preenchida dinamicamente)
+  // Template HTML: Define a estrutura de cabeçalho, imagem do planeta e grid de detalhes técnicos.
   infoPanel.innerHTML = `
     <button id="closePanelBtn" style="float: right; background: #222; border: 1px solid #444; color: white; cursor: pointer; padding: 8px 15px; border-radius: 4px; font-size:12px;">✕ FECHAR</button>
     
@@ -1277,26 +1291,33 @@ makeInfoPanel = function(container, width, onCloseHandler) {
 
   container.appendChild(infoPanel);
 
-  // Adiciona o listener para fechar o painel, usando o novo handler passado
+  // Vincula o evento de fechar, que dispara o reset da câmera no sistema solar.
   infoPanel.querySelector("#closePanelBtn").addEventListener("click", onCloseHandler);
-
   return infoPanel;
 }
 
 // Célula 20: [Estado global do modo LIVE] ====================================================
 
 // Célula 20.1: [Modo de operação] ============================================================
+
+// Controle mestre do modo de operação. 
+// false = Simulação Kepleriana; true = Sincronização real com a NASA.
 mutable isLiveMode = false;
 
 // Célula 20.2: [Cache local das posições LIVE] ===============================================
+
+// Estrutura de dados que armazena as últimas coordenadas (x, y) recebidas da API.
+// Serve como fonte de verdade para a renderização no modo LIVE.
 mutable livePositions = {};
 
 // Célula 21: [Fetch LIVE para TODOS os corpos] ===============================================
 
+// Função assíncrona que consome o backend (Vercel) para obter efemérides em tempo real.
 async function fetchAllLivePositions(setStatus = () => {}) {
 
   setStatus("Carregando..."); // Define o status inicial 
-  
+
+  // Lista de corpos suportados
   const bodies = [
     "Mercury","Venus","Earth","Mars",
     "Jupiter","Saturn","Uranus","Neptune",
@@ -1304,6 +1325,7 @@ async function fetchAllLivePositions(setStatus = () => {}) {
     "Callisto", "Titan"
   ];
 
+  // Executa múltiplas requisições HTTP em paralelo (Promise.all) para otimizar o tempo de carga.
   const requests = bodies.map(p =>
     fetch(`https://data-visualization-solar-viz.vercel.app/api/live?body=${p}`)
       .then(r => r.json())
@@ -1312,9 +1334,9 @@ async function fetchAllLivePositions(setStatus = () => {}) {
   );
 
   const results = await Promise.all(requests);
-
   const positions = {};
 
+  // Mapeamento de nomes: Traduz os termos da API (inglês) para os termos da visualização (português).
   const nameMap = {
     "Mercury": "Mercúrio", "Venus": "Vênus", "Earth": "Terra", "Mars": "Marte",
     "Jupiter": "Júpiter", "Saturn": "Saturno", "Uranus": "Urano", "Neptune": "Netuno",
@@ -1326,14 +1348,14 @@ async function fetchAllLivePositions(setStatus = () => {}) {
     if (!r || !r.data?.position) continue;
     const ptName = nameMap[r.name]; // Converte para o nome usado no array bodies
 
-    // Projeção simples heliocêntrica 2D
+    // Extrai as coordenadas cartesianas heliocêntricas (km) do dia atual.
     positions[ptName] = {
       x: r.data.position.x_km,
       y: r.data.position.y_km
     };
   }
 
-  // Verificação de sucesso para o status
+  // Validação de integridade dos dados e feedback visual via setStatus.
   const fetchedCount = Object.keys(positions).length;
   if (fetchedCount === bodies.length) {
       setStatus("Sucesso!");
@@ -1346,6 +1368,7 @@ async function fetchAllLivePositions(setStatus = () => {}) {
 
 // Célula 22: [Botão LIVE] ====================================================================
 
+// Cria o controle visual para alternar entre simulação e dados reais.
 makeLiveButton = function(svg, onToggle){
   const g = svg.append("g")
     .attr("transform","translate(150,660)")
@@ -1367,11 +1390,12 @@ makeLiveButton = function(svg, onToggle){
     .attr("text-anchor","middle")
     .text("LIVE");
 
-  // === NOVO: Círculo de Status (Inicialmente Vermelho - Inativo) ===
+  // Indicador de Status: Pequeno LED virtual que muda de cor (Vermelho/Amarelo/Verde).
+  // Permite ao usuário saber se a conexão com a API está ativa ou se houve falha.
   const statusIndicator = g.append("circle")
-    .attr("cx", 55) // Posição à direita do texto
-    .attr("cy", 7)  // Posição superior
-    .attr("r", 4)   // Tamanho do círculo
+    .attr("cx", 55)
+    .attr("cy", 7)
+    .attr("r", 4)
     .attr("fill", "red"); // Cor inicial: Inativo
 
   // Retornamos a referência ao indicador para uso externo
@@ -1382,36 +1406,35 @@ makeLiveButton = function(svg, onToggle){
 
 // Célula 23.1: [Gráfico de bolhas comparativo] ===============================================
 
+// Componente que gera um gráfico de bolhas linear para comparação de escala física.
 createComparisonBubbleChart = (focusPlanetName, containerWidth) => {
-  // 1. Configurações de Dimensão Adaptáveis
+  // 1. Configurações Adaptáveis: Garante que o gráfico se ajuste à largura do painel lateral.
   const width = containerWidth || 400;
-  const height = 220; // Aumentado um pouco para caber as labels
+  const height = 220;
   const margin = { top: 50, right: 30, bottom: 40, left: 30 };
 
-  // 2. Cálculo da área útil vertical
+  // 2. Escala de Tamanho (Linear): 
+  // Diferente da visualização principal, aqui usamos d3.scaleLinear para que a 
+  // área visual dos círculos represente fielmente a proporção real entre os planetas.
   const chartHeight = height - margin.top - margin.bottom;
-
-  // 3. Escalas usando seus dados unificados
   const maxRadius = d3.max(planets, d => d.realRadius);
-
-  // 4. Escala de Tamanho Rigorosa
-  // O raio máximo será metade da altura útil para garantir que o 
-  // diâmetro (2 * raio) nunca ultrapasse o topo do SVG.
   const sizeScale = d3.scaleLinear()
     .domain([0, maxRadius])
     .range([3, chartHeight / 2]);
 
+  // 3. Escala de Posicionamento (Point Scale):
+  // Distribui os planetas uniformemente ao longo do eixo X.
   const xScale = d3.scalePoint()
     .domain(planets.map(d => d.name))
     .range([margin.left, width - margin.right])
     .padding(0.6);
 
+  // 4. Construção do SVG:
   const svg = d3.create("svg")
     .attr("viewBox", [0, 0, width, height])
     .style("overflow", "visible")
     .style("display", "block");
 
-  // 5. Linha de base (Estilo do colega)
   svg.append("line")
     .attr("x1", margin.left - 10)
     .attr("x2", width - margin.right + 10)
@@ -1420,25 +1443,24 @@ createComparisonBubbleChart = (focusPlanetName, containerWidth) => {
     .attr("stroke", "#333")
     .attr("stroke-width", 1);
 
-  // 6. Grupos Visuais
+  // 5. Renderização dos Planetas:
+  // Os planetas são desenhados como círculos apoiados em uma linha de base comum.
   const planetGroups = svg.selectAll("g.planet-visual")
     .data(planets)
     .join("g")
     .attr("class", "planet-visual")
     .attr("transform", d => `translate(${xScale(d.name)}, ${height - margin.bottom})`);
 
-  // 7. Círculos com estilo de destaque
   planetGroups.append("circle")
     .attr("class", "planet-circle")
     .attr("r", d => sizeScale(d.realRadius))
-    .attr("cy", d => -sizeScale(d.realRadius)) // Move o centro para cima conforme o raio aumenta
-    .attr("fill", d => d.name === focusPlanetName ? d.color : "#444")
+    .attr("cy", d => -sizeScale(d.realRadius)) // Garante que a base do círculo toque a linha
+    .attr("fill", d => d.name === focusPlanetName ? d.color : "#444") // Destaque para o planeta selecionado
     .attr("fill-opacity", d => d.name === focusPlanetName ? 0.85 : 0.4)
     .attr("stroke", d => d.name === focusPlanetName ? "white" : "#666")
     .attr("stroke-width", d => d.name === focusPlanetName ? 2 : 1)
     .style("transition", "all 0.2s ease"); // Transição suave para o hover
 
-  // 8. Labels (Nomes)
   planetGroups.append("text")
     .attr("y", 25)
     .attr("text-anchor", "middle")
@@ -1448,7 +1470,9 @@ createComparisonBubbleChart = (focusPlanetName, containerWidth) => {
     .style("font-weight", d => d.name === focusPlanetName ? "600" : "400")
     .text(d => d.name.substring(0, 3).toUpperCase());
 
-  // 9. Tooltip (Injetado no body para sobrepor o painel)
+  // 6. Camada de Interatividade (Zonas de Captura):
+  // Cria retângulos invisíveis (rect) sobre cada planeta para facilitar a interação 
+  // do usuário com o mouse (mouseover/mouseout) e exibição de Tooltips.
   const tooltip = d3.select("body").selectAll(".bubble-tooltip").data([null]).join("div")
     .attr("class", "bubble-tooltip")
     .style("position", "absolute")
@@ -1460,10 +1484,9 @@ createComparisonBubbleChart = (focusPlanetName, containerWidth) => {
     .style("border-radius", "4px")
     .style("font-size", "12px")
     .style("pointer-events", "none")
-    .style("z-index", "3000")
+    .style("z-index", "3000") // Z-index alto para sobrepor o painel lateral
     .style("box-shadow", "0 4px 10px rgba(0,0,0,0.5)");
 
-  // 9. Camada de Interação (Zonas de Captura)
   const step = (width - margin.left - margin.right) / (planets.length - 1 || 1);
 
   svg.append("g")
@@ -1513,17 +1536,22 @@ createComparisonBubbleChart = (focusPlanetName, containerWidth) => {
 
 // Célula 23.2: [Gráfico de massa] ============================================================
 
+// Componente que gera um gráfico de barras logarítmico para comparação de massas planetárias.
 createMassChart = (focusPlanetName, containerWidth) => {
-  // 1. Configurações de Dimensão Adaptáveis
+  // 1. Configurações de Dimensão: Ajuste dinâmico para o layout lateral.
   const width = containerWidth || 400;
   const height = 220; 
   const margin = { top: 20, right: 20, bottom: 40, left: 50 };
 
-  // 2. Escalas (Usando seus dados 'planets' e 'mass')
+  // 2. Escala Logarítmica (Vital): 
+  // A massa de Júpiter é ~5.700 vezes maior que a de Mercúrio. 
+  // Em uma escala linear, as barras dos planetas rochosos seriam invisíveis (pixels sub-unidade).
+  // A escala logarítmica permite comparar ordens de grandeza na mesma visualização.
   const yScale = d3.scaleLog()
-    .domain([0.1, d3.max(planets, d => d.mass)])
+    .domain([0.1, d3.max(planets, d => d.mass)]) // Domínio baseado em 10^24 kg
     .range([height - margin.bottom, margin.top]);
 
+  // Escala Band para distribuição categórica dos nomes no eixo X.
   const xScale = d3.scaleBand()
     .domain(planets.map(d => d.name))
     .range([margin.left, width - margin.right])
@@ -1534,7 +1562,8 @@ createMassChart = (focusPlanetName, containerWidth) => {
     .style("overflow", "visible")
     .style("display", "block");
 
-  // 3. Eixos com estilo refinado
+  // 3. Eixos Estilizados:
+  // O eixo Y (Log) exibe ticks formatados para refletir a escala de potências.
   svg.append("g")
     .attr("transform", `translate(${margin.left},0)`)
     .call(d3.axisLeft(yScale).ticks(3, ".1f"))
@@ -1552,13 +1581,13 @@ createMassChart = (focusPlanetName, containerWidth) => {
       g.select(".domain").attr("stroke", "#444");
     });
 
-  // 4. Grupos de Barras
+  // 4. Renderização das Barras:
+  // As barras são coloridas para destacar o planeta selecionado no sistema solar principal.
   const planetGroups = svg.selectAll("g.planet-bar-group")
     .data(planets)
     .join("g")
     .attr("class", "planet-bar-group");
 
-  // Barras Visíveis
   planetGroups.append("rect")
     .attr("class", "visible-bar")
     .attr("x", d => xScale(d.name))
@@ -1571,7 +1600,9 @@ createMassChart = (focusPlanetName, containerWidth) => {
     .attr("stroke-width", 1.5)
     .style("transition", "fill 0.2s, stroke 0.2s, fill-opacity 0.2s");
 
-  // 5. Tooltip Global
+  // 5. Camada de Interação (UX):
+  // Implementação de overlays transparentes mais largos que as barras.
+  // Isso melhora a Fitts's Law, facilitando o hover em barras muito finas ou pequenas.
   const tooltip = d3.select("body").selectAll(".mass-tooltip").data([null]).join("div")
     .attr("class", "mass-tooltip")
     .style("position", "absolute")
@@ -1585,7 +1616,6 @@ createMassChart = (focusPlanetName, containerWidth) => {
     .style("pointer-events", "none")
     .style("z-index", "3000");
 
-  // 6. Camada de Interação (Overlays Transparentes)
   planetGroups.append("rect")
     .attr("x", d => xScale(d.name) - (xScale.step() * xScale.paddingInner() / 2))
     .attr("y", margin.top)
@@ -1594,9 +1624,11 @@ createMassChart = (focusPlanetName, containerWidth) => {
     .attr("fill", "transparent")
     .style("cursor", "pointer")
     .on("mouseover", (event, d) => {
+      // Exibe a massa real em escala de 10^24 kg no tooltip.
       tooltip.style("visibility", "visible")
         .html(`<strong>${d.name}</strong><br>Massa: ${d.mass.toLocaleString()} × 10²⁴ kg`);
-      
+
+      // Feedback visual de destaque (stroke white) ao interagir.
       d3.select(event.currentTarget.parentNode).select(".visible-bar")
         .attr("stroke", "white")
         .attr("stroke-width", 2)
@@ -1608,6 +1640,7 @@ createMassChart = (focusPlanetName, containerWidth) => {
     })
     .on("mouseout", (event, d) => {
       tooltip.style("visibility", "hidden");
+      // Retorna ao estado original (com destaque se for o planeta focado).
       const isFocus = d.name === focusPlanetName;
       d3.select(event.currentTarget.parentNode).select(".visible-bar")
         .attr("stroke", isFocus ? d.color : "none")
@@ -1620,15 +1653,19 @@ createMassChart = (focusPlanetName, containerWidth) => {
 
 // Célula 23.3: [Gráfico de linha orbital] ====================================================
 
+// Gera um gráfico de linha (slope chart) para visualizar a progressão das distâncias orbitais.
 createOrbitLineChart = (focusPlanetName, containerWidth) => {
-  // 1. Configurações de Dimensão Adaptáveis
+  // 1. Configurações de Dimensão: Adaptadas para o painel de detalhes (Dashboard).
   const width = containerWidth || 400;
   const height = 220; 
   const margin = { top: 30, right: 30, bottom: 40, left: 60 };
 
-  const maxOrbitKM = 4.5e9;
+  const maxOrbitKM = 4.5e9; // Limite baseado na órbita de Netuno (~4.5 bilhões de km).
 
-  // 2. Escalas (Usando seus dados 'planets')
+  // 2. Escala Linear de Distância:
+  // Diferente da simulação principal, aqui a escala linear revela a verdadeira 
+  // disparidade de distância entre os planetas internos (amontoados perto do zero) 
+  // e os externos (vastamente distribuídos).
   const yScale = d3.scaleLinear()
     .domain([0, maxOrbitKM])
     .range([height - margin.bottom, margin.top]);
@@ -1643,7 +1680,8 @@ createOrbitLineChart = (focusPlanetName, containerWidth) => {
     .style("overflow", "visible")
     .style("display", "block");
 
-  // 3. Eixos com formatação em Bilhões (Estilo do colega)
+  /// 3. Eixos e Grade:
+  // Formatação em Bilhões de km (B km) para facilitar a leitura de grandes magnitudes.
   const yTickValues = [0, 1.5e9, 3e9, 4.5e9];
   const yAxis = d3.axisLeft(yScale)
     .tickValues(yTickValues)
@@ -1670,7 +1708,8 @@ createOrbitLineChart = (focusPlanetName, containerWidth) => {
       g.select(".domain").attr("stroke", "#444");
     });
 
-  // 4. Linha Orbital
+  // 4. Linha de Conexão Orbital (Path):
+  // O uso de d3.line() aqui serve para enfatizar a tendência de crescimento orbital.
   svg.append("path")
     .datum(planets)
     .attr("fill", "none")
@@ -1681,7 +1720,6 @@ createOrbitLineChart = (focusPlanetName, containerWidth) => {
       .y(d => yScale(d.orbit))
     );
 
-  // 5. Pontos e Brilho de Foco
   const dots = svg.append("g")
     .selectAll("circle")
     .data(planets)
@@ -1695,7 +1733,8 @@ createOrbitLineChart = (focusPlanetName, containerWidth) => {
     .attr("stroke-width", d => d.name === focusPlanetName ? 2 : 1)
     .attr("fill-opacity", d => d.name === focusPlanetName ? 1 : 0.5);
 
-  // Aro de destaque para o planeta focado
+  // 5. Pontos de Dados e Ênfase no Foco:
+  // Adiciona um "halo" ou aro de destaque (stroke-dasharray) ao redor do planeta selecionado.
   const focusData = planets.find(p => p.name === focusPlanetName);
   if (focusData) {
     svg.append("circle")
@@ -1709,7 +1748,8 @@ createOrbitLineChart = (focusPlanetName, containerWidth) => {
       .style("filter", "drop-shadow(0 0 3px " + focusData.color + ")");
   }
 
-  // 6. Tooltip Global
+  // 6. Camada de Interação:
+  // Zonas de captura verticais (rect) facilitam a ativação de tooltips em telas de alta densidade.
   const tooltip = d3.select("body").selectAll(".orbit-tooltip").data([null]).join("div")
     .attr("class", "orbit-tooltip")
     .style("position", "absolute")
@@ -1723,7 +1763,6 @@ createOrbitLineChart = (focusPlanetName, containerWidth) => {
     .style("pointer-events", "none")
     .style("z-index", "3000");
 
-  // 7. Camada de Interação (Zonas de Captura Verticais)
   const step = (width - margin.left - margin.right) / (planets.length - 1 || 1);
 
   svg.append("g")
@@ -1765,19 +1804,22 @@ createOrbitLineChart = (focusPlanetName, containerWidth) => {
 
 // Célula 23.4: [Gráfico de barras horizontais] ===============================================
 
+// Gera um gráfico de barras horizontais para comparar o tempo de translação (ano) de cada planeta.
 createHorizontalBarChart = (focusPlanetName, containerWidth) => {
-  // 1. Configurações de Dimensão Adaptáveis
+  // 1. Configurações de Dimensão: Altura ligeiramente maior (250px) para acomodar todos os labels no eixo Y.
   const width = containerWidth || 400;
   const height = 250; 
   const margin = { top: 10, right: 50, bottom: 40, left: 80 };
 
-  // 2. Ordenação e Escalas (Usando seu array 'planets' e 'period')
+  // 2. Processamento de Dados e Escalas:
+  // Ordena os dados pelo período orbital para criar um ranking visual intuitivo.
   const data = [...planets].sort((a, b) => a.period - b.period);
 
   const xScale = d3.scaleLinear()
     .domain([0, d3.max(data, d => d.period)])
     .range([0, width - margin.left - margin.right]);
 
+  // d3.scaleBand para o eixo Y facilita a leitura dos nomes por extenso à esquerda.
   const yScale = d3.scaleBand()
     .domain(data.map(d => d.name))
     .range([height - margin.top - margin.bottom, 0])
@@ -1791,7 +1833,8 @@ createHorizontalBarChart = (focusPlanetName, containerWidth) => {
   const g = svg.append("g")
     .attr("transform", `translate(${margin.left},${margin.top})`);
 
-  // 3. Eixos
+  // 3. Eixos Estilizados:
+  // Formata os valores do eixo X com 'd' (dias) para contexto imediato da métrica temporal.
   g.append("g")
     .attr("transform", `translate(0,${height - margin.top - margin.bottom})`)
     .call(d3.axisBottom(xScale).ticks(4).tickFormat(d => `${d.toLocaleString()}d`))
@@ -1804,7 +1847,9 @@ createHorizontalBarChart = (focusPlanetName, containerWidth) => {
     .call(g => g.select(".domain").remove())
     .call(g => g.selectAll(".tick line").remove());
 
-  // 4. Tooltip Global
+  // 4. Tooltip Dinâmico:
+  // Exibe o valor exato em dias terrestres, auxiliando na compreensão das enormes escalas
+  // de tempo de Netuno em comparação aos planetas internos.
   const tooltip = d3.select("body").selectAll(".chart-tooltip").data([null]).join("div")
     .attr("class", "chart-tooltip")
     .style("position", "absolute")
@@ -1818,7 +1863,9 @@ createHorizontalBarChart = (focusPlanetName, containerWidth) => {
     .style("pointer-events", "none")
     .style("z-index", "3000");
 
-  // 5. Camada de Interação (Grupos por Planeta)
+  // 5. Renderização e Interatividade:
+  // Implementa "Zonas de Captura" largas (rect transparentes) para melhorar a experiência
+  // de interação (Fitts's Law), permitindo o hover em qualquer lugar da linha do planeta.
   const interactionGroups = g.selectAll(".interact-group")
     .data(data)
     .join("g")
@@ -1831,7 +1878,7 @@ createHorizontalBarChart = (focusPlanetName, containerWidth) => {
     .attr("y", d => yScale(d.name))
     .attr("height", yScale.bandwidth())
     .attr("width", d => xScale(d.period))
-    .attr("fill", d => d.name === focusPlanetName ? d.color : "#333")
+    .attr("fill", d => d.name === focusPlanetName ? d.color : "#333") // Destaque por cor
     .attr("fill-opacity", d => d.name === focusPlanetName ? 1 : 0.6)
     .style("transition", "fill 0.2s, stroke 0.2s");
 
@@ -1877,25 +1924,37 @@ createHorizontalBarChart = (focusPlanetName, containerWidth) => {
 
 // Célula 25.1: [Física Orbital] ==============================================================
 
+// Este objeto encapsula a física por trás das trajetórias interplanetárias.
 orbitalPhysics = {
+  // Constante Gravitacional do Sol (μ) em unidades astronômicas e dias.
   const muSun = 0.000295912208; // AU³/dia²
 
+  // Implementa a Manobra de Transferência de Hohmann: a rota de menor energia (Delta-V) 
+  // para transitar entre duas órbitas circulares coplanares.
   function calculateHohmann(r1, r2) {
-    const aTrans = (r1 + r2) / 2;
+    const aTrans = (r1 + r2) / 2; // Semi-eixo maior da elipse de transferência
+    
+    // Cálculo de velocidades orbitais e impulsos necessários (Delta-V)
     const v1 = Math.sqrt(muSun / r1);
     const v2 = Math.sqrt(muSun / r2);
     const vTrans1 = Math.sqrt(muSun * (2 / r1 - 1 / aTrans));
     const vTrans2 = Math.sqrt(muSun * (2 / r2 - 1 / aTrans));
     
-    const deltaV1 = Math.abs(vTrans1 - v1);
+    const deltaV1 = Math.abs(vTrans1 - v1); // Queima na partida
     const deltaV2 = Math.abs(v2 - vTrans2);
+
+    // Tempo de voo: metade do período orbital da elipse de transferência (Leis de Kepler)
     const transferTime = Math.PI * Math.sqrt(Math.pow(aTrans, 3) / muSun);
+    
+    // Ângulo de Fase Ideal: Posição relativa em que o alvo deve estar no momento do lançamento.
     const omega2 = Math.sqrt(muSun / Math.pow(r2, 3));
     const phaseAngle = (180 - omega2 * transferTime * (180 / Math.PI)) % 360;
 
     return { deltaV1, deltaV2, transferTime, phaseAngle, aTrans, e: Math.abs(r1 - r2) / (r1 + r2) };
   }
 
+  // Estima em quantos dias ocorrerá a próxima janela de lançamento ideal, 
+  // baseando-se na velocidade angular relativa entre os dois corpos.
   function getLaunchWindow(currentAngle, idealAngle, r1, r2) {
     const n1 = Math.sqrt(muSun / Math.pow(r1, 3));
     const n2 = Math.sqrt(muSun / Math.pow(r2, 3));
@@ -1910,10 +1969,12 @@ orbitalPhysics = {
 
 // Célula 25.2: [Estado da Missão] ============================================================
 
+// Variável reativa que armazena a intenção de viagem do usuário (Origem -> Destino).
 mutable mission = null;
 
 // Célula 25.3: [Lógica da Rota de Transferência] =============================================
 
+// Processador que transforma a intenção de missão em dados geométricos para o SVG.
 transferData = {
   if (!mission) return null;
 
@@ -1925,16 +1986,17 @@ transferData = {
   const r1 = p1.a_AU;
   const r2 = p2.a_AU;
   const aTrans = (r1 + r2) / 2;
-  const e = Math.abs(r1 - r2) / (r1 + r2);
+  const e = Math.abs(r1 - r2) / (r1 + r2); // Excentricidade da elipse de transferência
 
-  // Cálculo robusto do ângulo de fase ideal
-  // Para planetas externos: 180 * (1 - (aTrans/r2)^1.5)
-  // Para planetas internos: 180 * (1 + (aTrans/r2)^1.5) -> ou similar
+  // Cálculo robusto do ângulo de fase ideal (Phase Angle).
+  // Determina onde o planeta de destino precisa estar em relação ao de origem 
+  // para que a sonda o encontre no periastro/apoastro da elipse.
   const phaseAngle = (180 * (1 - Math.pow(aTrans / r2, 1.5))) % 360;
 
-  // IMPORTANTE: Inverter o sinal do ângulo se estiver voltando (r1 > r2)
+  // Ajuste de direção: Viagens para fora (Ex: Terra -> Marte) vs para dentro (Ex: Terra -> Vênus).
   const correctedPhaseAngle = r1 < r2 ? (phaseAngle + 360) % 360 : (360 - phaseAngle);
 
+  // Tempo de transferência em dias terrestres.
   const transferTime = 365.25 * 0.5 * Math.pow(aTrans, 1.5);
 
   return { p1, p2, aTrans, e, phaseAngle: correctedPhaseAngle, r1, r2, transferTime };
